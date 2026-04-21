@@ -33,8 +33,35 @@
     <style>
         body { background-color: #F8F9FA; transition: background-color 0.3s; }
         .nav-item.active { background-color: #852221 !important; color: white !important; }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 50; }
+        
+        /* FIXED: Stronger Overlay with blur to stop ghosting */
+        .modal-overlay { 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(15, 23, 42, 0.75); 
+            backdrop-filter: blur(8px); 
+            display: none; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 9999; 
+        }
         .modal-overlay.open { display: flex; }
+
+        /* FIXED: Added solid background to modal content */
+        .modal-content { 
+            background: white; 
+            width: 100%; 
+            max-width: 500px; 
+            border-radius: 1.5rem; 
+            overflow: hidden; 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); 
+        }
+        
+        .dark .modal-content { 
+            background-color: #1c1c24; 
+            border: 1px solid #2d2d3a; 
+        }
+
         .form-input { width: 100%; padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; outline: none; }
         .dark .form-input { background-color: #13131a; border-color: #2d2d3a; color: white; }
         .custom-scroll::-webkit-scrollbar { width: 4px; }
@@ -48,11 +75,9 @@
             <img src="logo.png" class="mx-auto mb-4 h-20 w-auto">
             <h2 class="text-xl font-bold dark:text-white">Vendor Portal</h2>
             <p class="text-gray-400 text-xs mt-1">Authorized Sellers & Staff Only</p>
-            
             <div id="loginError" class="hidden mt-4 p-3 bg-red-50 text-red-600 text-xs rounded border border-red-100 flex items-center gap-2">
                 <i data-lucide="alert-circle" class="w-4 h-4"></i> <span>Error message here</span>
             </div>
-
             <form onsubmit="event.preventDefault(); handleLogin();" class="space-y-4 mt-6 text-left">
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
@@ -67,29 +92,39 @@
         </div>
     </div>
 
-    <aside id="sidebar" class="bg-white dark:bg-dark-card flex flex-col border-r border-gray-200 dark:border-dark-border w-64 h-screen sticky top-0 transition-colors">
+    <aside id="sidebar" class="hidden bg-white dark:bg-dark-card flex flex-col border-r border-gray-200 dark:border-dark-border w-64 h-screen sticky top-0 transition-colors">
         <div class="h-16 flex items-center px-6 mb-2">
             <img src="logo.png" class="w-8 h-8 mr-3">
             <span class="text-lg font-bold dark:text-white tracking-tight">SCC <span class="text-primary">VENDOR</span></span>
         </div>
 
         <nav class="flex-1 px-3 space-y-1 overflow-y-auto custom-scroll">
-            <div onclick="switchView('dashboard')" id="nav-dashboard" class="nav-item active flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer">
+            <div onclick="switchView('dashboard')" id="nav-dashboard" class="nav-item active flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors">
                 <i data-lucide="layout-dashboard" class="w-5 h-5"></i><span>Overview</span>
             </div>
-            <div class="px-3 mt-6 mb-2 text-[10px] uppercase text-gray-400 font-bold tracking-widest">My Shop</div>
-            <div onclick="switchView('allItems')" id="nav-allItems" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-border">
+            
+            <div class="px-3 mt-6 mb-2 text-[10px] uppercase text-gray-400 font-bold tracking-widest">Store Management</div>
+            
+            <div onclick="switchView('allItems')" id="nav-allItems" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-border transition-colors">
                 <i data-lucide="package" class="w-5 h-5"></i><span>My Inventory</span>
             </div>
-            <div onclick="switchView('inbox')" id="nav-inbox" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-border">
+
+            <div onclick="switchView('orders')" id="nav-orders" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-border transition-colors">
+                <i data-lucide="shopping-bag" class="w-5 h-5"></i><span>Pickup Requests</span>
+            </div>
+
+            <div onclick="switchView('inbox')" id="nav-inbox" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-border transition-colors">
                 <i data-lucide="message-square" class="w-5 h-5"></i><span>Customer Inbox</span>
+            </div>
+            <div onclick="switchView('salesHistory')" id="nav-salesHistory" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-border transition-colors">
+                <i data-lucide="history" class="w-5 h-5"></i><span>Sales History</span>
             </div>
         </nav>
 
         <div class="mt-auto p-4 border-t border-gray-100 dark:border-dark-border">
             <div class="flex items-center justify-between p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border cursor-pointer" onclick="openMyProfile()">
                 <div class="flex items-center gap-3 overflow-hidden">
-                    <img id="sidebar-avatar" src="" class="w-9 h-9 rounded-lg border-2 border-white shadow-sm">
+                    <img id="sidebar-avatar" src="" class="w-9 h-9 rounded-lg border-2 border-white shadow-sm object-cover">
                     <div class="overflow-hidden">
                         <p class="text-xs font-bold truncate user-name dark:text-white">Vendor</p>
                         <p class="text-[10px] uppercase user-role text-gray-400 font-bold">Authorized Seller</p>
@@ -100,99 +135,426 @@
         </div>
     </aside>
 
-    <main class="flex-1 flex flex-col min-w-0" id="dashboard-container">
-        <header class="h-16 bg-white dark:bg-dark-card border-b dark:border-dark-border flex items-center justify-between px-6 sticky top-0 z-30">
-            <div class="text-sm font-medium text-gray-500">Shop Management / <span class="text-primary dark:text-red-400">Inventory</span></div>
-            <div class="flex items-center gap-4">
-                <button onclick="toggleTheme()" class="p-2 text-gray-400 hover:text-primary"><i id="theme-icon" data-lucide="moon"></i></button>
-                <div class="relative ml-2" id="userMenuContainer">
-                    <button onclick="toggleUserDropdown()" class="flex items-center gap-2 focus:outline-none">
-                        <img id="header-avatar" src="" class="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover">
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <div class="flex-1 overflow-auto p-6 relative">
-            <div id="view-dashboard" class="view-section active-view animate-fade-in">
-                <div class="mb-8">
-                    <h2 class="text-3xl font-black text-slate-800 dark:text-white"><span id="greeting-text">Welcome</span>, <span class="user-first-name">Vendor</span>.</h2>
-                    <p class="text-slate-400">Tracking your specific marketplace performance.</p>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                    <div class="bg-white dark:bg-dark-card p-6 rounded-3xl border dark:border-dark-border shadow-sm">
-                        <p class="text-[10px] uppercase font-bold text-green-600 mb-1">My Sales</p>
-                        <h3 id="dash-total-revenue" class="text-3xl font-black dark:text-white">₱0.00</h3>
+    <main class="hidden flex-1 flex flex-col min-w-0" id="dashboard-container">
+    <header class="h-16 bg-white dark:bg-dark-card border-b dark:border-dark-border flex items-center justify-between px-6 sticky top-0 z-30">
+        <div class="text-sm font-medium text-gray-500">Shop Management / <span class="text-primary dark:text-red-400" id="current-view-title">Overview</span></div>
+        <div class="flex items-center gap-4">
+            <button onclick="toggleTheme()" class="p-2 text-gray-400 hover:text-primary"><i id="theme-icon" data-lucide="moon"></i></button>
+            <div class="relative ml-2" id="userMenuContainer">
+                <img id="header-avatar" src="" class="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover cursor-pointer" onclick="toggleProfileDropdown()">
+                
+                <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-dark-card rounded-lg shadow-xl border dark:border-dark-border z-50">
+                    <div class="p-4 border-b dark:border-dark-border">
+                        <p class="text-sm font-bold text-slate-700 dark:text-white user-name">Vendor</p>
+                        <p class="text-xs text-gray-400 user-role">Authorized Seller</p>
                     </div>
-                    <div class="bg-white dark:bg-dark-card p-6 rounded-3xl border dark:border-dark-border shadow-sm">
-                        <p class="text-[10px] uppercase font-bold text-primary mb-1">My Orders</p>
-                        <h3 id="dash-total-orders" class="text-3xl font-black dark:text-white">0</h3>
-                    </div>
-                    <div class="bg-white dark:bg-dark-card p-6 rounded-3xl border dark:border-dark-border shadow-sm">
-                        <p class="text-[10px] uppercase font-bold text-blue-600 mb-1">Items in Shop</p>
-                        <h3 id="dash-active-products" class="text-3xl font-black dark:text-white">0</h3>
-                    </div>
-                </div>
-
-                <div class="bg-white dark:bg-dark-card rounded-3xl border dark:border-dark-border shadow-sm overflow-hidden">
-                    <div class="p-6 border-b dark:border-dark-border flex justify-between items-center bg-slate-50/50 dark:bg-white/5">
-                        <h4 class="font-bold text-slate-800 dark:text-white">Inventory Monitor</h4>
-                        <button onclick="openAddProductModal()" class="bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg">+ New Listing</button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full" id="productsTable">
-                            <thead>
-                                <tr class="text-[10px] uppercase font-bold text-slate-400 dark:text-gray-500">
-                                    <th class="px-8 py-4 text-left">Product</th>
-                                    <th class="px-8 py-4 text-left">Stock</th>
-                                    <th class="px-8 py-4 text-right">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y dark:divide-white/5"></tbody>
-                        </table>
+                    <div class="py-2">
+                        <a onclick="switchView('profile'); closeProfileDropdown();" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors">
+                            <i data-lucide="user" class="w-4 h-4"></i> View Profile
+                        </a>
+                        <a onclick="switchView('settings'); closeProfileDropdown();" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors">
+                            <i data-lucide="settings" class="w-4 h-4"></i> Settings
+                        </a>
+                        <a onclick="closeProfileDropdown()" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors">
+                            <i data-lucide="help-circle" class="w-4 h-4"></i> Help & Support
+                        </a>
+                        <div class="border-t dark:border-dark-border my-2"></div>
+                        <a onclick="handleLogout(); closeProfileDropdown();" class="flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer transition-colors">
+                            <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+                        </a>
                     </div>
                 </div>
             </div>
+        </div>
+    </header>
 
-            <div id="view-allItems" class="view-section hidden">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold dark:text-white">My Inventory</h2>
-                    <input type="text" id="productSearch" placeholder="Search my items..." class="form-input w-64 border-gray-200">
+    <div class="flex-1 overflow-auto p-6 relative">
+        
+        <div id="view-dashboard" class="view-section active-view animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-3xl font-black text-slate-800 dark:text-white"><span id="greeting-text">Welcome</span>, <span class="user-first-name">Vendor</span>.</h2>
+                <p class="text-slate-400">Tracking your specific marketplace performance.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div class="bg-white dark:bg-dark-card p-6 rounded-3xl border dark:border-dark-border shadow-sm">
+                    <p class="text-[10px] uppercase font-bold text-green-600 mb-1">My Sales</p>
+                    <h3 id="dash-total-revenue" class="text-3xl font-black dark:text-white">₱0.00</h3>
                 </div>
-                <div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border dark:border-dark-border overflow-hidden">
-                    <table class="w-full text-left">
-                        <thead class="bg-gray-50 dark:bg-[#13131a] border-b dark:border-dark-border">
-                            <tr class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase"><th class="px-6 py-4">Product</th><th class="px-6 py-4">Category</th><th class="px-6 py-4">Price</th><th class="px-6 py-4">Stock</th><th class="px-6 py-4 text-right">Status</th><th class="px-6 py-4 text-right">Action</th></tr>
+                <div class="bg-white dark:bg-dark-card p-6 rounded-3xl border dark:border-dark-border shadow-sm">
+                    <p class="text-[10px] uppercase font-bold text-primary mb-1">My Orders</p>
+                    <h3 id="dash-total-orders" class="text-3xl font-black dark:text-white">0</h3>
+                </div>
+                <div class="bg-white dark:bg-dark-card p-6 rounded-3xl border dark:border-dark-border shadow-sm">
+                    <p class="text-[10px] uppercase font-bold text-blue-600 mb-1">Items in Shop</p>
+                    <h3 id="dash-active-products" class="text-3xl font-black dark:text-white">0</h3>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-dark-card rounded-3xl border dark:border-dark-border shadow-sm overflow-hidden">
+                <div class="p-6 border-b dark:border-dark-border flex justify-between items-center bg-slate-50/50 dark:bg-white/5">
+                    <h4 class="font-bold text-slate-800 dark:text-white">Inventory Monitor</h4>
+                    <button onclick="openModal('addItemModal')" class="bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg transition-transform active:scale-95">+ New Listing</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full" id="productsTable">
+                        <thead>
+                            <tr class="text-[10px] uppercase font-bold text-slate-400 dark:text-gray-500">
+                                <th class="px-8 py-4 text-left">Product</th>
+                                <th class="px-8 py-4 text-left">Stock</th>
+                                <th class="px-8 py-4 text-right">Status</th>
+                            </tr>
                         </thead>
-                        <tbody id="tbody-all-items" class="text-sm divide-y dark:divide-gray-800 dark:text-gray-300"></tbody>
+                        <tbody class="divide-y dark:divide-white/5"></tbody>
                     </table>
                 </div>
             </div>
+        </div>
 
-            <div id="view-inbox" class="view-section hidden">
-                <h2 class="text-2xl font-bold dark:text-white mb-6">Customer Inbox</h2>
-                <div id="inbox-list" class="bg-white dark:bg-dark-card rounded-xl border dark:border-dark-border divide-y dark:divide-gray-800">
-                    <div class="p-8 text-center text-gray-400 italic">No messages found.</div>
+        <div id="view-allItems" class="view-section hidden animate-fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold dark:text-white">My Inventory</h2>
+                <input type="text" id="productSearch" placeholder="Search my items..." class="form-input w-64 border-gray-200">
+            </div>
+            <div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border dark:border-dark-border overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 dark:bg-[#13131a] border-b dark:border-dark-border">
+                        <tr class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">
+                            <th class="px-6 py-4">Product</th>
+                            <th class="px-6 py-4">Category</th>
+                            <th class="px-6 py-4">Price</th>
+                            <th class="px-6 py-4">Stock</th>
+                            <th class="px-6 py-4 text-right">Status</th>
+                            <th class="px-6 py-4 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-all-items" class="text-sm divide-y dark:divide-gray-800 dark:text-gray-300"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="view-orders" class="view-section hidden animate-fade-in">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-black text-slate-800 dark:text-white">Pickup Requests</h2>
+                    <p class="text-slate-400">Manage student orders and preparation status.</p>
+                </div>
+                <button onclick="createDemoOrder()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black transition-all">
+                    Generate Demo Order
+                </button>
+            </div>
+            <div id="orders-list" class="grid grid-cols-1 gap-4"></div>
+        </div>
+
+        <div id="view-salesHistory" class="view-section hidden animate-fade-in">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-black text-slate-800 dark:text-white">Sales History</h2>
+                    <p class="text-slate-400">Review all completed and paid transactions.</p>
+                </div>
+                <div class="flex gap-4">
+                    <div class="bg-blue-50 dark:bg-cyan-900/30 px-6 py-3 rounded-2xl border border-blue-200 dark:border-cyan-600">
+                        <p class="text-[10px] uppercase font-bold text-blue-600 dark:text-cyan-400">Total Sales</p>
+                        <h3 id="history-total-sales" class="text-xl font-black text-blue-600 dark:text-cyan-300">₱0.00</h3>
+                    </div>
+                    <div class="bg-primary/10 dark:bg-orange-900/30 px-6 py-3 rounded-2xl border border-primary/20 dark:border-orange-600">
+                        <p class="text-[10px] uppercase font-bold text-primary dark:text-orange-400">Lifetime Revenue (12%)</p>
+                        <h3 id="history-total-revenue" class="text-xl font-black text-primary dark:text-orange-300">₱0.00</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-dark-card rounded-3xl border dark:border-dark-border shadow-sm overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 dark:bg-white/5 border-b dark:border-dark-border">
+                        <tr class="text-[10px] uppercase font-bold text-slate-400">
+                            <th class="px-8 py-4">Date Claimed</th>
+                            <th class="px-8 py-4">Student</th>
+                            <th class="px-8 py-4">Items</th>
+                            <th class="px-8 py-4 text-right">Amount Paid</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-sales-history" class="divide-y dark:divide-white/5"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="view-inbox" class="view-section hidden animate-fade-in">
+            <h2 class="text-2xl font-bold dark:text-white mb-6">Customer Inbox</h2>
+            <div id="inbox-list" class="bg-white dark:bg-dark-card rounded-xl border dark:border-dark-border divide-y dark:divide-gray-800">
+                <div class="p-8 text-center text-gray-400 italic">No messages found.</div>
+            </div>
+        </div>
+
+        <div id="view-profile" class="view-section hidden animate-fade-in">
+            <!-- Profile Form -->
+            <div class="bg-white dark:bg-dark-card rounded-3xl border dark:border-dark-border shadow-sm p-8">
+                <div class="flex gap-8">
+                    <!-- Left Side - Form Fields -->
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold text-slate-800 dark:text-white mb-6">My Profile</h2>
+                        
+                        <form class="space-y-6">
+                            <!-- Username -->
+                            <div>
+                                <label class="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase mb-2 block">Username</label>
+                                <p id="profile-username" class="text-lg text-gray-700 dark:text-gray-200 font-semibold">---</p>
+                            </div>
+
+                            <!-- Name -->
+                            <div>
+                                <label class="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase mb-2 block">Name</label>
+                                <input type="text" id="profile-name-input" class="form-input" placeholder="Enter your name">
+                            </div>
+
+                            <!-- Email -->
+                            <div>
+                                <label class="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase mb-2 block">Email</label>
+                                <div class="flex items-center justify-between">
+                                    <p id="profile-email-display" class="text-lg text-gray-700 dark:text-gray-200 font-semibold">---</p>
+                                    <button type="button" onclick="openChangeEmailModal()" class="text-primary dark:text-orange-400 hover:text-red-900 dark:hover:text-orange-500 text-sm font-bold underline">Change</button>
+                                </div>
+                            </div>
+
+                            <!-- Phone Number -->
+                            <div>
+                                <label class="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase mb-2 block">Phone Number</label>
+                                <div class="flex items-center justify-between">
+                                    <p id="profile-phone-display" class="text-lg text-gray-700 dark:text-gray-200 font-semibold">---</p>
+                                    <button type="button" onclick="openChangePhoneModal()" class="text-primary dark:text-orange-400 hover:text-red-900 dark:hover:text-orange-500 text-sm font-bold underline">Change</button>
+                                </div>
+                            </div>
+
+                            <!-- Join Date -->
+                            <div>
+                                <label class="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase mb-2 block">Member Since</label>
+                                <p id="profile-join-date" class="text-lg text-gray-700 dark:text-gray-200 font-semibold">---</p>
+                            </div>
+
+                            <!-- Save Button -->
+                            <button type="button" onclick="saveProfileChanges()" class="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-red-900 transition-colors mt-8">
+                                Save Changes
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Right Side - Avatar -->
+                    <div class="flex flex-col items-center">
+                        <div class="relative mb-4">
+                            <img id="profile-avatar" src="" class="w-32 h-32 rounded-2xl border-4 border-primary/20 object-cover shadow-lg">
+                            <input type="file" id="avatar-upload-input" class="hidden" accept="image/*" onchange="uploadAvatar(this.files[0])">
+                        </div>
+                        <button onclick="document.getElementById('avatar-upload-input').click()" class="bg-white dark:bg-dark-card text-slate-700 dark:text-gray-200 px-6 py-2 rounded-lg border border-gray-300 dark:border-dark-border font-semibold text-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                            Select Image
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-    </main>
 
-    <div id="addItemModal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="flex justify-between items-center px-6 py-4 border-b dark:border-dark-border"><h3 class="text-lg font-bold">List Product</h3><button onclick="closeModal('addItemModal')"><i data-lucide="x"></i></button></div>
-            <div class="p-6 space-y-4">
-                <input id="inp_name" class="form-input" placeholder="Product Name">
-                <div class="grid grid-cols-2 gap-4"><input id="inp_price" type="number" class="form-input" placeholder="Price (PHP)"><input id="inp_stock" type="number" class="form-input" placeholder="Stock Qty"></div>
-                <select id="inp_category" class="form-input"><option>School Supplies</option><option>Uniforms</option><option>Books</option></select>
-                <input id="inp_status" type="hidden" value="Pending"> <input id="inp_recipient" type="hidden" value=""> <textarea id="inp_desc" class="form-input" placeholder="Description"></textarea>
-                <div class="media-upload-area" onclick="document.getElementById('inp_file').click()"><i data-lucide="image" class="w-8 h-8 mx-auto mb-2 text-gray-300"></i><span class="text-xs">Click to Upload</span></div>
-                <input type="file" id="inp_file" class="hidden">
+        <div id="view-settings" class="view-section hidden animate-fade-in">
+            <!-- Change Password Section -->
+            <div class="bg-white dark:bg-dark-card rounded-3xl border dark:border-dark-border shadow-sm p-8 mb-6">
+                <h3 class="text-2xl font-bold text-slate-800 dark:text-white mb-6">Change Password</h3>
+                <form onsubmit="event.preventDefault(); handleChangePassword();" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Current Password</label>
+                        <input type="password" id="current-password" class="form-input" placeholder="Enter current password" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">New Password</label>
+                        <input type="password" id="new-password" class="form-input" placeholder="Enter new password" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Confirm New Password</label>
+                        <input type="password" id="confirm-password" class="form-input" placeholder="Confirm new password" required>
+                    </div>
+                    <button type="submit" class="bg-primary text-white px-6 py-3 rounded-lg font-bold hover:bg-red-900 transition-colors flex items-center gap-2">
+                        <i data-lucide="lock" class="w-5 h-5"></i> Update Password
+                    </button>
+                </form>
             </div>
-            <div class="px-6 py-4 bg-gray-50 dark:bg-[#13131a] flex justify-end gap-2 rounded-b-xl"><button onclick="closeModal('addItemModal')" class="px-4 py-2">Cancel</button><button onclick="saveNewProduct()" class="bg-primary text-white px-6 py-2 rounded-lg font-bold">Submit</button></div>
+
+            <!-- Account Status Section -->
+            <div class="bg-white dark:bg-dark-card rounded-3xl border dark:border-dark-border shadow-sm p-8 mb-6">
+                <h3 class="text-2xl font-bold text-slate-800 dark:text-white mb-6">Account Status</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl">
+                        <p class="text-xs text-gray-500 uppercase font-bold mb-2">Verification Status</p>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                            <span class="font-semibold text-gray-700 dark:text-gray-200">Verified</span>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl">
+                        <p class="text-xs text-gray-500 uppercase font-bold mb-2">Account Type</p>
+                        <p class="font-semibold text-gray-700 dark:text-gray-200" id="account-type">Authorized Seller</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 dark:bg-white/5 rounded-xl">
+                        <p class="text-xs text-gray-500 uppercase font-bold mb-2">Status</p>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                            <span class="font-semibold text-gray-700 dark:text-gray-200">Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Settings Section -->
+            <div class="bg-white dark:bg-dark-card rounded-3xl border dark:border-dark-border shadow-sm p-8">
+                <h3 class="text-2xl font-bold text-slate-800 dark:text-white mb-6">Security Settings</h3>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 rounded-xl">
+                        <div>
+                            <p class="font-semibold text-gray-700 dark:text-gray-200">Two-Factor Authentication</p>
+                            <p class="text-xs text-gray-500">Add an extra layer of security</p>
+                        </div>
+                        <button onclick="toggle2FA()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors">
+                            Enable
+                        </button>
+                    </div>
+
+                </div>
+            </div>
         </div>
     </div>
+</main>
+
+    <div id="addItemModal" class="modal-overlay">
+        <div class="modal-content shadow-2xl">
+            <div class="flex justify-between items-center px-6 py-4 border-b dark:border-dark-border bg-white dark:bg-dark-card rounded-t-xl">
+                <h3 class="text-lg font-bold text-gray-800 dark:text-white">List New Product</h3>
+                <button onclick="closeModal('addItemModal')" class="p-1 hover:bg-gray-100 dark:hover:bg-dark-border rounded-full transition-colors">
+                    <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4 bg-white dark:bg-dark-card">
+                <input id="inp_name" class="form-input" placeholder="Product Name">
+                <div class="grid grid-cols-2 gap-4">
+                    <input id="inp_price" type="number" class="form-input" placeholder="Price (PHP)">
+                    <input id="inp_stock" type="number" class="form-input" placeholder="Stock Qty">
+                </div>
+                <select id="inp_category" class="form-input">
+                    <option>School Supplies</option>
+                    <option>School Uniform & Clothing</option>
+                    <option>Books & Learning Materials</option>
+                    <option>Sports & PE</option>
+                </select>
+                <input id="inp_status" type="hidden" value="Pending"> 
+                <input id="inp_recipient" type="hidden" value=""> 
+                <textarea id="inp_desc" class="form-input h-24 resize-none" placeholder="Description..."></textarea>
+                
+                <div class="media-upload-area" onclick="document.getElementById('inp_file').click()" 
+                     style="position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 150px; border: 2px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; cursor: pointer;">
+                    <div id="upload-placeholder" class="text-center">
+                        <i data-lucide="image" class="w-8 h-8 mx-auto mb-2 text-gray-300"></i>
+                        <span class="text-xs text-gray-500">Click to Upload Image</span>
+                    </div>
+                    <img id="img-preview" class="hidden absolute inset-0 w-full h-full object-contain bg-white">
+                </div>
+                <input type="file" id="inp_file" class="hidden" accept="image/*" onchange="previewImage(this)">
+            </div>
+            
+            <div class="px-6 py-4 bg-gray-50 dark:bg-[#13131a] flex justify-end gap-2 rounded-b-xl border-t dark:border-dark-border">
+                <button onclick="closeModal('addItemModal')" class="px-4 py-2 text-sm font-semibold text-gray-500 hover:text-gray-700">Cancel</button>
+                <button id="saveProductBtn" onclick="saveNewProduct()" class="bg-primary text-white px-6 py-2 rounded-lg font-bold shadow-lg active:scale-95 transition-all">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="orderDetailsModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black text-slate-800 dark:text-white">Order Details</h3>
+                <button onclick="closeModal('orderDetailsModal')"><i data-lucide="x"></i></button>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="flex justify-between border-b pb-2">
+                    <span class="text-gray-400">Student Name:</span>
+                    <span id="od-student" class="font-bold">--</span>
+                </div>
+                <div class="flex justify-between items-center border-b pb-3 mb-2">
+    <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Payment Method</span>
+    <div id="od-payment-badge" class="px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm bg-slate-100 text-slate-500">
+        <span id="od-payment-mode">Loading...</span>
+    </div>
+</div>
+<div class="space-y-2 border-b pb-3 mb-4 mt-2">
+    <div class="flex justify-between text-[11px]">
+        <span class="text-gray-400">Order Placed:</span>
+        <span id="od-date-placed" class="font-mono font-bold text-slate-600 dark:text-gray-300">--</span>
+    </div>
+    <div class="flex justify-between text-[11px]">
+        <span class="text-gray-400">Claimed & Paid:</span>
+        <span id="od-date-claimed" class="font-mono font-bold text-green-600">--</span>
+    </div>
+</div>
+                <div>
+                    <p class="text-xs font-bold text-primary uppercase mb-2">Items Purchased</p>
+                    <div id="od-items-list" class="space-y-2 bg-slate-50 dark:bg-white/5 p-4 rounded-xl">
+                        </div>
+                </div>
+                <div class="flex justify-between items-center pt-4">
+                    <span class="font-bold text-lg">Total Amount:</span>
+                    <span id="od-total" class="font-black text-2xl text-primary">₱0.00</span>
+                </div>
+            </div>
+            
+            <button onclick="closeModal('orderDetailsModal')" class="w-full mt-8 bg-slate-100 py-3 rounded-xl font-bold text-gray-600 hover:bg-slate-200 transition-all">Close</button>
+        </div>
+    </div>
+</div>
+
+
+
+    <div id="changeEmailModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black text-slate-800 dark:text-white">Change Email</h3>
+                <button onclick="closeModal('changeEmailModal')"><i data-lucide="x"></i></button>
+            </div>
+            
+            <form onsubmit="event.preventDefault(); handleChangeEmail();" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Password (for verification)</label>
+                    <input type="password" id="email-verify-password" class="form-input" placeholder="Enter your password" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">New Email Address</label>
+                    <input type="email" id="new-email" class="form-input" placeholder="Enter new email" required>
+                </div>
+                <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-lg font-bold hover:bg-red-900 transition-colors">Update Email</button>
+            </form>
+            
+            <button onclick="closeModal('changeEmailModal')" class="w-full mt-4 bg-slate-100 py-3 rounded-xl font-bold text-gray-600 hover:bg-slate-200 transition-all dark:bg-white/5 dark:text-gray-300">Cancel</button>
+        </div>
+    </div>
+</div>
+
+    <div id="changePhoneModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black text-slate-800 dark:text-white">Change Phone Number</h3>
+                <button onclick="closeModal('changePhoneModal')"><i data-lucide="x"></i></button>
+            </div>
+            
+            <form onsubmit="event.preventDefault(); handleChangePhone();" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">New Phone Number</label>
+                    <input type="tel" id="new-phone" class="form-input" placeholder="Enter new phone number" required>
+                </div>
+                <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-lg font-bold hover:bg-red-900 transition-colors">Update Phone</button>
+            </form>
+            
+            <button onclick="closeModal('changePhoneModal')" class="w-full mt-4 bg-slate-100 py-3 rounded-xl font-bold text-gray-600 hover:bg-slate-200 transition-all dark:bg-white/5 dark:text-gray-300">Cancel</button>
+        </div>
+    </div>
+</div>
 
     <script src="Script.js"></script>
 </body>
