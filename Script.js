@@ -23,8 +23,21 @@ let globalActiveChatThread = null;
 let globalActiveChatMessages = [];
 let globalChatUsers = [];
 let globalFilteredChatUsers = [];
+let globalIncomingOrders = [];
+let globalIncomingOrdersError = '';
+let globalSalesHistoryError = '';
+let globalReviewsError = '';
+let globalUpdatingOrderIds = new Set();
+let globalOfficialSalesHistory = [];
+let globalProductReviews = [];
+let globalSellerReputation = null;
+let unsubscribeVendorProducts = null;
 let unsubscribeChatThreads = null;
 let unsubscribeChatMessages = null;
+let unsubscribeIncomingOrders = null;
+let unsubscribeOfficialSalesHistory = null;
+let unsubscribeProductReviews = null;
+let unsubscribeSellerReputation = null;
 
 try {
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
@@ -59,25 +72,35 @@ auth.onAuthStateChanged(async (user) => {
     const sidebarUI = document.getElementById('sidebar');
 
     if (user) {
-        // Try Users Collection
-        const userDoc = await db.collection('users').doc(user.uid).get();
-        if (userDoc.exists) {
-            const userData = userDoc.data();
-            const type = (userData.userType || userData.type || "").toUpperCase();
-            if (type === "SELLER" || type === "STAFF") {
-                currentUserCollection = 'users';
-                setupVendorSession(user.uid, userData);
+        try {
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if (userDoc.exists) {
+                const userData = userDoc.data();
+                const type = (userData.userType || userData.type || "").toUpperCase();
+                if (type === "SELLER" || type === "STAFF") {
+                    currentUserCollection = 'users';
+                    setupVendorSession(user.uid, userData);
+                } else {
+                    alert("Access Denied: Not a Vendor account.");
+                    auth.signOut();
+                }
             } else {
-                alert("Access Denied: Not a Vendor account.");
-                auth.signOut();
+                const adminDoc = await db.collection('admin').doc(user.uid).get();
+                if (adminDoc.exists) {
+                    currentUserCollection = 'admin';
+                    setupVendorSession(user.uid, adminDoc.data());
+                } else {
+                    auth.signOut();
+                }
             }
-        } else {
-            // Check Admin Fallback
-            const adminDoc = await db.collection('admin').doc(user.uid).get();
-            if (adminDoc.exists) {
-                currentUserCollection = 'admin';
-                setupVendorSession(user.uid, adminDoc.data());
-            } else { auth.signOut(); }
+        } catch (e) {
+            console.error('Auth bootstrap failed:', e);
+            const errorEl = document.getElementById('loginError');
+            if (errorEl) {
+                errorEl.classList.remove('hidden');
+                errorEl.querySelector('span').innerText = e.message || 'Unable to load your vendor account right now.';
+            }
+            auth.signOut();
         }
     } else {
         currentUserData = null;
@@ -89,7 +112,19 @@ auth.onAuthStateChanged(async (user) => {
         globalActiveChatMessages = [];
         globalChatUsers = [];
         globalFilteredChatUsers = [];
+        globalIncomingOrders = [];
+        globalIncomingOrdersError = '';
+        globalSalesHistoryError = '';
+        globalReviewsError = '';
+        globalUpdatingOrderIds = new Set();
+        globalOfficialSalesHistory = [];
+        globalProductReviews = [];
+        globalSellerReputation = null;
+        cleanupVendorDataListener();
+        cleanupReviewsListeners();
         cleanupChatListeners();
+        cleanupIncomingOrdersListener();
+        cleanupSalesHistoryListeners();
         currentUserCollection = 'users';
         if (loginUI) loginUI.style.display = 'flex';
         if (dashUI) dashUI.classList.add('hidden');
@@ -105,8 +140,9 @@ function setupVendorSession(uid, data) {
     document.getElementById('sidebar').classList.remove('hidden');
     updateVendorUI(data);
     initVendorData(uid); 
-    initOrderListener(uid);
+    initIncomingOrdersListener(uid);
     initSalesHistoryListener(uid);
+    initReviewsListener(uid);
     initChatInboxListener(uid);
 }
 
@@ -140,9 +176,10 @@ window.switchView = function(viewName) {
         const titles = { 
             'dashboard': 'Overview', 
             'allItems': 'My Inventory', 
-            'orders': 'Pickup Requests', 
+            'orders': 'Incoming Checkout Requests', 
             'inbox': 'Customer Inbox',
             'salesHistory': 'Sales History',
+            'reviews': 'Customer Reviews',
             'profile': 'My Profile',
             'settings': 'Settings'
         };
@@ -179,6 +216,38 @@ function cleanupChatListeners() {
     if (typeof unsubscribeChatMessages === 'function') {
         unsubscribeChatMessages();
         unsubscribeChatMessages = null;
+    }
+}
+
+function cleanupIncomingOrdersListener() {
+    if (typeof unsubscribeIncomingOrders === 'function') {
+        unsubscribeIncomingOrders();
+        unsubscribeIncomingOrders = null;
+    }
+}
+
+function cleanupVendorDataListener() {
+    if (typeof unsubscribeVendorProducts === 'function') {
+        unsubscribeVendorProducts();
+        unsubscribeVendorProducts = null;
+    }
+}
+
+function cleanupReviewsListeners() {
+    if (typeof unsubscribeProductReviews === 'function') {
+        unsubscribeProductReviews();
+        unsubscribeProductReviews = null;
+    }
+    if (typeof unsubscribeSellerReputation === 'function') {
+        unsubscribeSellerReputation();
+        unsubscribeSellerReputation = null;
+    }
+}
+
+function cleanupSalesHistoryListeners() {
+    if (typeof unsubscribeOfficialSalesHistory === 'function') {
+        unsubscribeOfficialSalesHistory();
+        unsubscribeOfficialSalesHistory = null;
     }
 }
 
@@ -231,6 +300,136 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+function formatCurrency(value) {
+    return `PHP ${Number(value || 0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}`;
+}
+
+function formatRating(value) {
+    const rating = Number(value || 0);
+    return rating > 0 ? rating.toFixed(1) : '0.0';
+}
+
+function getReviewStars(rating) {
+    const safeRating = Math.max(0, Math.min(5, Number(rating || 0)));
+    const filled = Math.round(safeRating);
+    return '★'.repeat(filled) + '☆'.repeat(5 - filled);
+}
+
+function getOrderBuyerName(order) {
+    return order.buyerName || order.customerInfo?.fullName || 'Unknown Buyer';
+}
+
+function getOrderBuyerEmail(order) {
+    return order.buyerEmail || order.customerInfo?.studentEmail || 'No email provided';
+}
+
+function getOrderContactNumber(order) {
+    return order.customerInfo?.contactNumber || 'No contact number';
+}
+
+function getOrderSchoolLevel(order) {
+    return order.customerInfo?.schoolLevel || 'Not specified';
+}
+
+function getOrderNotes(order) {
+    return order.notes || 'No notes provided.';
+}
+
+function getOrderItemSummary(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length) {
+        const fallbackName = order.itemName || order.productName || 'Unnamed item';
+        return { label: fallbackName, quantity: 1 };
+    }
+
+    const totalQuantity = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || items.length;
+    const firstItem = items[0]?.name || order.itemName || order.productName || 'Unnamed item';
+    const extraCount = items.length - 1;
+    const label = extraCount > 0 ? `${firstItem} +${extraCount} more` : firstItem;
+    return { label, quantity: totalQuantity };
+}
+
+function getIncomingOrderStatusConfig(status) {
+    const normalized = status || 'pending_verification';
+    const configs = {
+        pending_verification: {
+            label: 'Pending Verification',
+            badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
+        },
+        confirmed: {
+            label: 'Confirmed',
+            badgeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
+        },
+        rejected: {
+            label: 'Rejected',
+            badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
+        },
+        completed: {
+            label: 'Completed',
+            badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+        },
+        cancelled: {
+            label: 'Cancelled',
+            badgeClass: 'bg-slate-200 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300'
+        }
+    };
+
+    return configs[normalized] || {
+        label: normalized.replace(/_/g, ' '),
+        badgeClass: 'bg-slate-200 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300'
+    };
+}
+
+function getAllowedIncomingOrderTransitions(currentStatus) {
+    const transitions = {
+        pending_verification: ['confirmed', 'rejected', 'cancelled'],
+        confirmed: ['completed'],
+        rejected: [],
+        completed: [],
+        cancelled: []
+    };
+    return transitions[currentStatus || 'pending_verification'] || [];
+}
+
+function canTransitionIncomingOrder(currentStatus, nextStatus) {
+    return getAllowedIncomingOrderTransitions(currentStatus).includes(nextStatus);
+}
+
+function getReceiptStatusConfig(order) {
+    if (order?.receiptSent === true) {
+        return {
+            label: 'Receipt Sent',
+            detail: order.receiptSentAt ? `Sent ${formatTimestamp(order.receiptSentAt)}` : 'Email receipt delivered',
+            badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+        };
+    }
+
+    if (order?.receiptError) {
+        return {
+            label: 'Receipt Failed',
+            detail: String(order.receiptError),
+            badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
+        };
+    }
+
+    if (order?.status === 'completed') {
+        return {
+            label: 'Receipt Pending',
+            detail: 'Order is completed but no receipt confirmation has been saved yet.',
+            badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
+        };
+    }
+
+    return {
+        label: 'Not Ready',
+        detail: 'Receipt will trigger after the order reaches completed status.',
+        badgeClass: 'bg-slate-200 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300'
+    };
 }
 
 function normalizeRole(value) {
@@ -1042,7 +1241,8 @@ window.toggleTheme = function() {
 // 4. INVENTORY DATA LOGIC
 // ==========================================
 function initVendorData(vendorUid) {
-    db.collection('Vendor-product').doc(vendorUid).collection('listings').onSnapshot(snap => {
+    cleanupVendorDataListener();
+    unsubscribeVendorProducts = db.collection('Vendor-product').doc(vendorUid).collection('listings').onSnapshot(snap => {
         globalProducts = [];
         snap.forEach(doc => { globalProducts.push({ id: doc.id, ...doc.data() }); });
         globalProducts.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -1058,7 +1258,7 @@ function renderVendorProducts() {
     if (invTable) invTable.innerHTML = '';
 
     if (globalProducts.length === 0) {
-        const empty = `<tr><td colspan="6" class="py-10 text-center text-gray-400 italic">No products listed yet.</td></tr>`;
+        const empty = `<tr><td colspan="7" class="py-10 text-center text-gray-400 italic">No products listed yet.</td></tr>`;
         if (dashTable) dashTable.innerHTML = empty;
         if (invTable) invTable.innerHTML = empty;
         return;
@@ -1069,6 +1269,7 @@ function renderVendorProducts() {
         const status = p.Status || 'Pending';
         const price = p.Price || 0;
         const stock = p.Stock || 0;
+        const departmentTag = p.DepartmentTag || 'All Departments';
         
         // Dashboard Row
         if (dashTable) {
@@ -1093,6 +1294,7 @@ function renderVendorProducts() {
                     <div><p class="font-bold text-slate-700 dark:text-white">${name}</p><p class="text-[10px] text-gray-400 uppercase font-mono">${p.Category}</p></div>
                 </td>
                 <td class="px-6 py-4 text-gray-500">${p.Category}</td>
+                <td class="px-6 py-4 text-gray-500">${departmentTag}</td>
                 <td class="px-6 py-4 font-black">₱${price.toLocaleString()}</td>
                 <td class="px-6 py-4 font-mono">${stock}</td>
                 <td class="px-6 py-4 text-right"><span class="text-[10px] font-black uppercase ${status === 'In Stock' ? 'text-green-500' : 'text-orange-500'}">${status}</span></td>
@@ -1123,7 +1325,7 @@ window.filterProducts = function(searchTerm) {
     if (!invTable) return;
     
     if (filtered.length === 0) {
-        invTable.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-400 italic">No products found matching your search.</td></tr>`;
+        invTable.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-gray-400 italic">No products found matching your search.</td></tr>`;
         return;
     }
     
@@ -1133,6 +1335,7 @@ window.filterProducts = function(searchTerm) {
         const status = p.Status || 'Pending';
         const price = p.Price || 0;
         const stock = p.Stock || 0;
+        const departmentTag = p.DepartmentTag || 'All Departments';
         
         html += `
         <tr class="hover:bg-gray-50 dark:hover:bg-white/5 border-b dark:border-dark-border">
@@ -1141,6 +1344,7 @@ window.filterProducts = function(searchTerm) {
                 <div><p class="font-bold text-slate-700 dark:text-white">${name}</p><p class="text-[10px] text-gray-400 uppercase font-mono">${p.Category}</p></div>
             </td>
             <td class="px-6 py-4 text-gray-500">${p.Category}</td>
+            <td class="px-6 py-4 text-gray-500">${departmentTag}</td>
             <td class="px-6 py-4 font-black">₱${price.toLocaleString()}</td>
             <td class="px-6 py-4 font-mono">${stock}</td>
             <td class="px-6 py-4 text-right"><span class="text-[10px] font-black uppercase ${status === 'In Stock' ? 'text-green-500' : 'text-orange-500'}">${status}</span></td>
@@ -1169,6 +1373,7 @@ window.saveNewProduct = async function() {
         const officialName = userDoc.exists ? userDoc.data().name : (currentVendorName || "Vendor");
 
         const name = document.getElementById('inp_name').value;
+        const departmentTag = document.getElementById('DepartmentTag').value || '';
         const file = document.getElementById('inp_file').files[0];
         let imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=852221&color=fff`;
         
@@ -1186,6 +1391,7 @@ window.saveNewProduct = async function() {
             Price: Number(document.getElementById('inp_price').value),
             Stock: Number(document.getElementById('inp_stock').value),
             Category: document.getElementById('inp_category').value,
+            DepartmentTag: departmentTag,
             Description: document.getElementById('inp_desc').value,
             Image: imageUrl,
             Status: 'Pending',
@@ -1202,6 +1408,7 @@ window.saveNewProduct = async function() {
         document.getElementById('inp_name').value = "";
         document.getElementById('inp_price').value = "";
         document.getElementById('inp_stock').value = "";
+        document.getElementById('DepartmentTag').value = "";
         document.getElementById('inp_desc').value = "";
         document.getElementById('inp_file').value = "";
         document.getElementById('img-preview').classList.add('hidden');
@@ -1225,8 +1432,8 @@ window.previewImage = function(input) {
 // ==========================================
 // 6. ORDER MANAGEMENT (Section 7 restored)
 // ==========================================
-function initOrderListener(vendorUid) {
-    db.collection('orders').where('vendorId', '==', vendorUid).orderBy('timestamp', 'desc').onSnapshot(snap => {
+function legacyInitOrderListener(vendorUid) {
+    db.collection('Orders').where('vendorId', '==', vendorUid).orderBy('timestamp', 'desc').onSnapshot(snap => {
         const container = document.getElementById('orders-list');
         const orderCountEl = document.getElementById('dash-total-orders');
         if (!container) return;
@@ -1252,7 +1459,7 @@ function initOrderListener(vendorUid) {
                 </div>
                 <div class="flex items-center gap-6">
                     <div class="text-right"><p class="font-black">₱${order.totalAmount}</p><span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${statusClass}">${order.status}</span></div>
-                    <div class="flex gap-2">${renderActionButton(id, order.status)}</div>
+                    <div class="flex gap-2">${legacyRenderActionButton(id, order.status)}</div>
                 </div>
             </div>`;
         });
@@ -1261,29 +1468,25 @@ function initOrderListener(vendorUid) {
     });
 }
 
-function renderActionButton(id, status) {
+function legacyRenderActionButton(id, status) {
     if (status === 'Preparing') return `<button onclick="event.stopPropagation(); updateOrderStatus('${id}', 'Ready')" class="bg-red-800 text-white px-4 py-2 rounded-xl text-xs font-bold">Mark Ready</button>`;
     if (status === 'Ready') return `<button onclick="event.stopPropagation(); updateOrderStatus('${id}', 'Claimed')" class="bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold">Claimed</button>`;
     return `<div class="text-green-500"><i data-lucide="check-circle"></i></div>`;
 }
 
-window.updateOrderStatus = async function(orderId, newStatus) {
+window.legacyUpdateOrderStatus = async function(orderId, newStatus) {
     try {
-        const orderRef = db.collection('orders').doc(orderId);
+        const orderRef = db.collection('Orders').doc(orderId);
         const doc = await orderRef.get();
         if (!doc.exists) return;
         
-        const orderData = doc.data();
-        const vendorUid = orderData.vendorId;
-
         const updateData = { 
             status: newStatus,
             lastUpdated: firebase.firestore.FieldValue.serverTimestamp() 
         };
 
         if (newStatus === 'Claimed') {
-            const completionTime = firebase.firestore.FieldValue.serverTimestamp();
-            updateData.claimedAt = completionTime;
+            updateData.claimedAt = firebase.firestore.FieldValue.serverTimestamp();
 
             // --- NESTED PATH ARCHIVING ---
             // Path: Vendor-product/{vendorUid}/purchased-products/{orderId}
@@ -1311,9 +1514,222 @@ window.updateOrderStatus = async function(orderId, newStatus) {
     }
 };
 
+window.updateOrderStatus = async function(orderId, newStatus) {
+    try {
+        const orderRef = db.collection('Orders').doc(orderId);
+        const doc = await orderRef.get();
+        if (!doc.exists) return;
+
+        const updateData = {
+            status: newStatus,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (newStatus === 'Claimed') {
+            updateData.claimedAt = firebase.firestore.FieldValue.serverTimestamp();
+        }
+
+        await orderRef.update(updateData);
+        console.log(`Status updated to ${newStatus}`);
+    } catch (e) {
+        console.error('Failed to update order status:', e);
+        alert(`Error: ${e.message}`);
+    }
+};
+
+function initIncomingOrdersListener(vendorUid) {
+    cleanupIncomingOrdersListener();
+    globalIncomingOrders = [];
+    globalIncomingOrdersError = '';
+    renderIncomingOrders();
+
+    unsubscribeIncomingOrders = db.collection('Orders')
+        .where('sellerId', '==', vendorUid)
+        .where('sellerType', '==', 'vendor')
+        .where('orderChannel', '==', 'official')
+        .orderBy('createdAt', 'desc')
+        .onSnapshot(snapshot => {
+            globalIncomingOrdersError = '';
+            globalIncomingOrders = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() || {}) }));
+            renderIncomingOrders();
+        }, error => {
+            console.error('Failed to load official vendor orders:', error);
+            globalIncomingOrders = [];
+            globalIncomingOrdersError = error?.message || 'Unable to load incoming checkout requests right now.';
+            renderIncomingOrders();
+        });
+}
+
+function renderIncomingOrderActions(order) {
+    const actions = getAllowedIncomingOrderTransitions(order.status);
+    if (!actions.length) {
+        return `<div class="inline-flex items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500 dark:bg-white/5 dark:text-slate-300">
+            <i data-lucide="check-circle-2" class="h-4 w-4"></i>
+            Terminal
+        </div>`;
+    }
+
+    const isUpdating = globalUpdatingOrderIds.has(order.id);
+    const buttonStyles = {
+        confirmed: 'bg-blue-600 text-white hover:bg-blue-700',
+        rejected: 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-500/15 dark:text-rose-200 dark:hover:bg-rose-500/25',
+        completed: 'bg-emerald-600 text-white hover:bg-emerald-700',
+        cancelled: 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-white/20'
+    };
+    const labels = {
+        confirmed: 'Confirm',
+        rejected: 'Reject',
+        completed: 'Complete',
+        cancelled: 'Cancel'
+    };
+
+    return actions.map(status => `
+        <button
+            onclick="event.stopPropagation(); updateIncomingOrderStatus('${order.id}', '${status}')"
+            class="rounded-xl px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition ${buttonStyles[status] || 'bg-slate-800 text-white'} ${isUpdating ? 'cursor-not-allowed opacity-60' : ''}"
+            ${isUpdating ? 'disabled' : ''}
+        >
+            ${labels[status] || status}
+        </button>
+    `).join('');
+}
+
+function renderIncomingOrders() {
+    const container = document.getElementById('orders-list');
+    const orderCountEl = document.getElementById('dash-total-orders');
+    if (!container) return;
+
+    if (orderCountEl) {
+        orderCountEl.innerText = String(globalIncomingOrders.length);
+    }
+
+    if (globalIncomingOrdersError) {
+        container.innerHTML = `
+            <div class="rounded-3xl border border-rose-200 bg-rose-50 p-8 text-center dark:border-rose-900/40 dark:bg-rose-950/20">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-rose-500 shadow-sm dark:bg-white/5">
+                    <i data-lucide="alert-triangle" class="h-7 w-7"></i>
+                </div>
+                <h3 class="text-lg font-black text-rose-700 dark:text-rose-300">Unable to load checkout requests</h3>
+                <p class="mt-2 text-sm text-rose-600 dark:text-rose-200">${escapeHtml(globalIncomingOrdersError)}</p>
+                <p class="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-rose-400">Check Firestore rules and the required orders index.</p>
+            </div>`;
+        if (window.lucide) lucide.createIcons();
+        return;
+    }
+
+    if (!globalIncomingOrders.length) {
+        container.innerHTML = `
+            <div class="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-dark-border dark:bg-dark-card">
+                <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500">
+                    <i data-lucide="shopping-bag" class="h-8 w-8"></i>
+                </div>
+                <h3 class="text-xl font-black text-slate-700 dark:text-white">No incoming checkout requests</h3>
+                <p class="mt-2 text-sm text-slate-400">Official department and facility orders from <span class="font-bold">orders</span> will appear here in realtime.</p>
+            </div>`;
+        if (window.lucide) lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = globalIncomingOrders.map(order => {
+        const summary = getOrderItemSummary(order);
+        const statusConfig = getIncomingOrderStatusConfig(order.status);
+        const receiptConfig = getReceiptStatusConfig(order);
+
+        return `
+            <article onclick="viewOrderDetails('${order.id}')" class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition hover:border-primary hover:shadow-md dark:border-dark-border dark:bg-dark-card">
+                <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                    <div class="flex gap-4">
+                        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-primary dark:bg-white/5">
+                            <i data-lucide="package-check" class="h-6 w-6"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <h3 class="text-lg font-black text-slate-800 dark:text-white">${escapeHtml(getOrderBuyerName(order))}</h3>
+                                <span class="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statusConfig.badgeClass}">${escapeHtml(statusConfig.label)}</span>
+                            </div>
+                            <p class="mt-1 text-sm text-slate-500 dark:text-slate-300">${escapeHtml(getOrderBuyerEmail(order))}</p>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <span class="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600 dark:bg-white/5 dark:text-slate-300">${escapeHtml(getOrderContactNumber(order))}</span>
+                                <span class="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600 dark:bg-white/5 dark:text-slate-300">${escapeHtml(getOrderSchoolLevel(order))}</span>
+                                <span class="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600 dark:bg-white/5 dark:text-slate-300">${escapeHtml(order.paymentMethod || 'Payment not set')}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-2 text-left xl:min-w-[220px] xl:text-right">
+                        <p class="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Created</p>
+                        <p class="text-sm font-semibold text-slate-600 dark:text-slate-200">${escapeHtml(formatTimestamp(order.createdAt))}</p>
+                        <p class="text-sm font-black text-primary">${escapeHtml(formatCurrency(order.total))}</p>
+                        <p class="text-xs text-slate-400">Subtotal ${escapeHtml(formatCurrency(order.subtotal))}</p>
+                    </div>
+                </div>
+
+                <div class="mt-5 grid gap-4 rounded-2xl bg-slate-50 p-4 dark:bg-white/5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Requested Items</p>
+                        <p class="mt-2 text-sm font-bold text-slate-800 dark:text-white">${escapeHtml(summary.label)}</p>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-300">Total quantity: ${escapeHtml(summary.quantity)}</p>
+                        <p class="mt-3 text-xs text-slate-500 dark:text-slate-300"><span class="font-black uppercase tracking-[0.12em] text-slate-400">Notes</span><br>${escapeHtml(getOrderNotes(order))}</p>
+                    </div>
+                    <div class="flex flex-col justify-between gap-4">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Order Info</p>
+                            <div class="mt-2 space-y-1 text-xs text-slate-500 dark:text-slate-300">
+                                <p>Department Tag: <span class="font-bold text-slate-700 dark:text-slate-100">${escapeHtml(order.departmentTag || 'Not set')}</span></p>
+                                <p>Fulfillment: <span class="font-bold text-slate-700 dark:text-slate-100">${escapeHtml(order.fulfillmentType || 'Department Checkout')}</span></p>
+                                <p>Order ID: <span class="font-mono font-bold text-slate-700 dark:text-slate-100">${escapeHtml(order.id.slice(0, 10))}</span></p>
+                            </div>
+                            <div class="mt-3 rounded-2xl border border-white/10 bg-white/60 px-3 py-3 dark:bg-white/5">
+                                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Receipt Email</p>
+                                <div class="mt-2 flex flex-wrap items-center gap-2">
+                                    <span class="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${receiptConfig.badgeClass}">${escapeHtml(receiptConfig.label)}</span>
+                                </div>
+                                <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-300">${escapeHtml(receiptConfig.detail)}</p>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 xl:justify-end">
+                            ${renderIncomingOrderActions(order)}
+                        </div>
+                    </div>
+                </div>
+            </article>`;
+    }).join('');
+
+    if (window.lucide) lucide.createIcons();
+}
+
+window.legacyUpdateIncomingOrderStatus = async function(orderId, newStatus) {
+    const order = globalIncomingOrders.find(item => item.id === orderId);
+    if (!order) {
+        alert('Order not found.');
+        return;
+    }
+
+    if (!canTransitionIncomingOrder(order.status, newStatus)) {
+        alert(`Invalid status change from ${order.status || 'unknown'} to ${newStatus}.`);
+        return;
+    }
+
+    globalUpdatingOrderIds.add(orderId);
+    renderIncomingOrders();
+
+    try {
+        await db.collection('Orders').doc(orderId).update({
+            status: newStatus,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (e) {
+        console.error('Failed to update incoming order status:', e);
+        alert(`Error: ${e.message}`);
+    } finally {
+        globalUpdatingOrderIds.delete(orderId);
+        renderIncomingOrders();
+    }
+};
+
 function legacyViewOrderDetails(id) {
     return window.viewOrderDetails(id);
-    db.collection('orders').doc(id).get().then(doc => {
+    db.collection('Orders').doc(id).get().then(doc => {
         if (!doc.exists) return;
         const data = doc.data();
         
@@ -1362,7 +1778,7 @@ function legacyViewOrderDetails(id) {
 
 window.createDemoOrder = async function() {
     if(!auth.currentUser) return;
-    await db.collection('orders').add({
+    await db.collection('Orders').add({
         vendorId: auth.currentUser.uid,
         studentName: "Justin Venedict",
         totalAmount: 750,
@@ -1388,31 +1804,287 @@ function formatTimestamp(ts) {
     });
 }
 
-function populateOrderDetails(data) {
-    document.getElementById('od-student').innerText = data.studentName || 'Guest';
-    document.getElementById('od-total').innerText = formatMoney(data.totalAmount);
+function getSaleSortTime(sale) {
+    return toMillis(sale.claimedAt || sale.updatedAt || sale.createdAt || sale.timestamp);
+}
 
-    const mode = data.paymentMode || "Cash";
-    const modeText = document.getElementById('od-payment-mode');
-    const badge = document.getElementById('od-payment-badge');
-    if (modeText) modeText.innerText = mode;
+function normalizeOfficialSale(doc) {
+    const data = doc.data() || {};
+    return {
+        id: doc.id,
+        source: 'official',
+        ...data,
+        studentName: data.buyerName || data.customerInfo?.fullName || 'Guest',
+        paymentMode: data.paymentMethod || 'Cash',
+        totalAmount: Number(data.total || data.subtotal || 0),
+        claimedAt: data.updatedAt || data.createdAt
+    };
+}
 
-    if (badge) {
-        badge.className = mode.toLowerCase().includes("gcash")
-            ? "px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm bg-blue-100 text-blue-600 border border-blue-200"
-            : "px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm bg-green-100 text-green-600 border border-green-200";
+function renderSalesHistoryTable() {
+    const tbody = document.getElementById('tbody-sales-history');
+    if (!tbody) return;
+
+    globalSalesHistory = [...globalOfficialSalesHistory]
+        .sort((a, b) => getSaleSortTime(b) - getSaleSortTime(a));
+
+    if (globalSalesHistoryError) {
+        tbody.innerHTML = `<tr><td colspan="4" class="px-8 py-10 text-center">
+            <div class="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200">
+                <p class="text-sm font-black uppercase tracking-[0.18em]">Sales History Query Failed</p>
+                <p class="mt-3 text-sm">${escapeHtml(globalSalesHistoryError)}</p>
+                <p class="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-rose-400">Open the browser console and use the Firebase index link if one is provided.</p>
+            </div>
+        </td></tr>`;
+        updateSalesSummary(0);
+        return;
     }
 
-    document.getElementById('od-date-placed').innerText = formatTimestamp(data.timestamp);
-    document.getElementById('od-date-claimed').innerText = formatTimestamp(data.claimedAt);
+    if (!globalSalesHistory.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-20 text-center text-gray-400 italic">No completed sales recorded yet.</td></tr>`;
+        updateSalesSummary(0);
+        return;
+    }
+
+    let totalSales = 0;
+    let html = '';
+
+    globalSalesHistory.forEach(sale => {
+        totalSales += Number(sale.totalAmount || 0);
+        const saleDate = sale.claimedAt && typeof sale.claimedAt.toDate === 'function'
+            ? sale.claimedAt.toDate()
+            : new Date(getSaleSortTime(sale));
+        const date = Number.isNaN(saleDate.getTime())
+            ? '---'
+            : saleDate.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+
+        html += `
+            <tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer" onclick="viewSalesHistoryDetails('${sale.id}')">
+                <td class="px-8 py-5 font-mono text-xs text-slate-500">${escapeHtml(date)}</td>
+                <td class="px-8 py-5">
+                    <p class="font-bold text-slate-700 dark:text-gray-200">${escapeHtml(sale.studentName || 'Guest')}</p>
+                    <p class="text-[10px] text-gray-400 uppercase">${escapeHtml(sale.paymentMode || 'Cash')}</p>
+                </td>
+                <td class="px-8 py-5 text-gray-500 text-xs">
+                    ${(Array.isArray(sale.items) ? sale.items.length : 0)} items
+                </td>
+                <td class="px-8 py-5 text-right font-black text-primary dark:text-orange-400">
+                    ${formatMoney(sale.totalAmount)}
+                </td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = html;
+    updateSalesSummary(totalSales);
+}
+
+function renderReviewsSummary() {
+    const average = Number(globalSellerReputation?.averageRating || 0);
+    const reviewCount = Number(globalSellerReputation?.reviewCount || globalProductReviews.length || 0);
+    const ratingCount = Number(globalSellerReputation?.ratingCount || 0);
+    const latestReview = globalProductReviews[0]?.createdAt || globalSellerReputation?.updatedAt;
+
+    const summaryTargets = [
+        ['dash-average-rating', formatRating(average)],
+        ['reviews-average-rating', formatRating(average)],
+        ['reviews-review-count', String(reviewCount)],
+        ['reviews-rating-count', String(ratingCount)]
+    ];
+
+    summaryTargets.forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = value;
+    });
+
+    const dashReviewCount = document.getElementById('dash-review-count');
+    if (dashReviewCount) {
+        dashReviewCount.innerText = `${reviewCount} ${reviewCount === 1 ? 'Review' : 'Reviews'}`;
+    }
+
+    const latestReviewEl = document.getElementById('reviews-last-review');
+    if (latestReviewEl) {
+        latestReviewEl.innerText = latestReview ? formatTimestamp(latestReview) : '---';
+    }
+}
+
+function renderReviewsList() {
+    const container = document.getElementById('reviews-list');
+    if (!container) return;
+
+    renderReviewsSummary();
+
+    if (globalReviewsError) {
+        container.innerHTML = `
+            <div class="p-8 text-center">
+                <div class="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200">
+                    <p class="text-sm font-black uppercase tracking-[0.18em]">Review Feed Failed</p>
+                    <p class="mt-3 text-sm">${escapeHtml(globalReviewsError)}</p>
+                    <p class="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-rose-400">Check Firestore indexes for product_reviews and seller_reputation.</p>
+                </div>
+            </div>`;
+        return;
+    }
+
+    if (!globalProductReviews.length) {
+        container.innerHTML = `<div class="p-10 text-center text-gray-400 italic">No published reviews yet.</div>`;
+        return;
+    }
+
+    container.innerHTML = globalProductReviews.map(review => `
+        <article class="grid gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <h4 class="text-base font-black text-slate-800 dark:text-white">${escapeHtml(review.productName || 'Unnamed Product')}</h4>
+                    <span class="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-amber-600 dark:bg-amber-900/20 dark:text-amber-300">${escapeHtml(getReviewStars(review.rating))}</span>
+                    <span class="text-sm font-bold text-slate-500 dark:text-slate-300">${escapeHtml(formatRating(review.rating))}</span>
+                </div>
+                <p class="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-200">${escapeHtml(review.buyerName || 'Buyer')}</p>
+                <p class="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-300">${escapeHtml(review.review || 'No written review provided.')}</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 bg-slate-50 px-4 py-4 text-sm dark:border-dark-border dark:bg-white/5">
+                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Review Info</p>
+                <p class="mt-3 text-slate-600 dark:text-slate-200">Seller: <span class="font-bold">${escapeHtml(review.sellerName || currentVendorName || 'Vendor')}</span></p>
+                <p class="mt-1 text-slate-600 dark:text-slate-200">Status: <span class="font-bold">${escapeHtml(review.status || 'published')}</span></p>
+                <p class="mt-1 text-slate-600 dark:text-slate-200">Date: <span class="font-bold">${escapeHtml(formatTimestamp(review.createdAt))}</span></p>
+            </div>
+        </article>
+    `).join('');
+}
+
+function initReviewsListener(vendorUid) {
+    cleanupReviewsListeners();
+    globalReviewsError = '';
+    globalProductReviews = [];
+    globalSellerReputation = null;
+    renderReviewsList();
+
+    unsubscribeProductReviews = db.collection('product_reviews')
+        .where('sellerId', '==', vendorUid)
+        .where('status', '==', 'published')
+        .orderBy('createdAt', 'desc')
+        .onSnapshot(snapshot => {
+            globalReviewsError = '';
+            globalProductReviews = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() || {}) }));
+            renderReviewsList();
+        }, error => {
+            console.error('Failed to load product reviews:', error);
+            globalProductReviews = [];
+            globalReviewsError = error?.message || 'Unable to load published reviews right now.';
+            renderReviewsList();
+        });
+
+    unsubscribeSellerReputation = db.collection('seller_reputation')
+        .doc(vendorUid)
+        .onSnapshot(doc => {
+            globalSellerReputation = doc.exists ? { id: doc.id, ...(doc.data() || {}) } : null;
+            renderReviewsList();
+        }, error => {
+            console.error('Failed to load seller reputation:', error);
+            globalReviewsError = globalReviewsError || error?.message || 'Unable to load seller reputation right now.';
+            renderReviewsList();
+        });
+}
+
+function populateOrderDetails(data) {
+    const mode = data.paymentMode || data.paymentMethod || 'Cash';
+    const modeText = document.getElementById('od-payment-mode');
+    const badge = document.getElementById('od-payment-badge');
+    const items = Array.isArray(data.items) ? data.items : [];
+
+    document.getElementById('od-student').innerText = data.studentName || data.buyerName || 'Guest';
+    document.getElementById('od-email').innerText = data.buyerEmail || data.customerInfo?.studentEmail || 'No email provided';
+    document.getElementById('od-contact').innerText = data.contactNumber || data.customerInfo?.contactNumber || 'No contact number';
+    document.getElementById('od-level').innerText = data.schoolLevel || data.customerInfo?.schoolLevel || 'Not specified';
+    document.getElementById('od-status').innerText = data.status || 'Completed';
+    document.getElementById('od-department').innerText = data.departmentTag || 'Sales Record';
+    document.getElementById('od-notes').innerText = data.notes || 'No notes provided.';
+    document.getElementById('od-receipt-status').innerText = data.receiptSent ? 'Receipt Sent' : 'Not tracked';
+    document.getElementById('od-receipt-detail').innerText = data.receiptSentAt ? `Sent ${formatTimestamp(data.receiptSentAt)}` : 'Legacy sales records may not include email receipt tracking.';
+    document.getElementById('od-subtotal').innerText = formatCurrency(data.subtotal || data.totalAmount || data.total);
+    document.getElementById('od-tax').innerText = formatCurrency(data.tax);
+    document.getElementById('od-total').innerText = formatCurrency(data.totalAmount || data.total);
+    document.getElementById('od-date-placed').innerText = formatTimestamp(data.timestamp || data.createdAt);
+    document.getElementById('od-date-updated').innerText = formatTimestamp(data.claimedAt || data.updatedAt);
+
+    if (modeText) modeText.innerText = mode;
+    if (badge) {
+        const paymentClass = mode.toLowerCase().includes('gcash')
+            ? 'bg-blue-100 text-blue-700 border border-blue-200'
+            : 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+        badge.className = `px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm ${paymentClass}`;
+    }
+
+    const receiptBadge = document.getElementById('od-receipt-badge');
+    if (receiptBadge) {
+        receiptBadge.className = `px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm ${data.receiptSent ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-200 text-slate-700 border border-slate-300'}`;
+    }
 
     const list = document.getElementById('od-items-list');
     if (list) {
-        list.innerHTML = data.items ? data.items.map(i => `
-            <div class="flex justify-between text-sm py-2 border-b dark:border-white/5 last:border-0">
-                <span class="text-slate-600 dark:text-gray-300">${i.name} <span class="text-[10px] text-gray-400">x${i.qty}</span></span>
-                <span class="font-bold text-slate-800 dark:text-white">${formatMoney(i.price)}</span>
-            </div>`).join('') : '';
+        list.innerHTML = items.length ? items.map(item => `
+            <div class="flex items-start justify-between gap-4 border-b py-2 text-sm last:border-0 dark:border-white/5">
+                <div>
+                    <p class="font-bold text-slate-700 dark:text-gray-100">${escapeHtml(item.name || 'Unnamed item')}</p>
+                    <p class="text-[11px] text-slate-400">Qty ${escapeHtml(item.qty || item.quantity || 0)}</p>
+                </div>
+                <span class="font-black text-slate-800 dark:text-white">${escapeHtml(formatCurrency(item.price))}</span>
+            </div>`).join('') : `<p class="text-sm text-slate-400">No item lines available.</p>`;
+    }
+
+    openModal('orderDetailsModal');
+    if(window.lucide) lucide.createIcons();
+}
+
+function populateIncomingOrderDetails(order) {
+    const statusConfig = getIncomingOrderStatusConfig(order.status);
+    const receiptConfig = getReceiptStatusConfig(order);
+    const items = Array.isArray(order.items) ? order.items : [];
+    const mode = order.paymentMethod || 'Not specified';
+    const modeText = document.getElementById('od-payment-mode');
+    const badge = document.getElementById('od-payment-badge');
+
+    document.getElementById('od-student').innerText = getOrderBuyerName(order);
+    document.getElementById('od-email').innerText = getOrderBuyerEmail(order);
+    document.getElementById('od-contact').innerText = getOrderContactNumber(order);
+    document.getElementById('od-level').innerText = getOrderSchoolLevel(order);
+    document.getElementById('od-status').innerText = statusConfig.label;
+    document.getElementById('od-department').innerText = order.departmentTag || 'Not set';
+    document.getElementById('od-notes').innerText = getOrderNotes(order);
+    document.getElementById('od-receipt-status').innerText = receiptConfig.label;
+    document.getElementById('od-receipt-detail').innerText = receiptConfig.detail;
+    document.getElementById('od-subtotal').innerText = formatCurrency(order.subtotal);
+    document.getElementById('od-tax').innerText = formatCurrency(order.tax);
+    document.getElementById('od-total').innerText = formatCurrency(order.total);
+    document.getElementById('od-date-placed').innerText = formatTimestamp(order.createdAt);
+    document.getElementById('od-date-updated').innerText = formatTimestamp(order.updatedAt);
+
+    if (modeText) modeText.innerText = mode;
+    if (badge) {
+        const paymentClass = mode.toLowerCase().includes('gcash')
+            ? 'bg-blue-100 text-blue-700 border border-blue-200'
+            : 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+        badge.className = `px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm ${paymentClass}`;
+    }
+
+    const receiptBadge = document.getElementById('od-receipt-badge');
+    if (receiptBadge) {
+        receiptBadge.className = `px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm ${receiptConfig.badgeClass}`;
+    }
+
+    const list = document.getElementById('od-items-list');
+    if (list) {
+        list.innerHTML = items.length ? items.map(item => `
+            <div class="flex items-start justify-between gap-4 border-b py-2 text-sm last:border-0 dark:border-white/5">
+                <div>
+                    <p class="font-bold text-slate-700 dark:text-gray-100">${escapeHtml(item.name || 'Unnamed item')}</p>
+                    <p class="text-[11px] text-slate-400">${escapeHtml(item.category || 'No category')} • Qty ${escapeHtml(item.quantity || 0)}</p>
+                </div>
+                <span class="font-black text-slate-800 dark:text-white">${escapeHtml(formatCurrency(item.price))}</span>
+            </div>`).join('') : `<p class="text-sm text-slate-400">No item lines available.</p>`;
     }
 
     openModal('orderDetailsModal');
@@ -1534,65 +2206,164 @@ function legacyInitSalesHistoryListener(vendorUid) {
 
 function initSalesHistoryListener(vendorUid) {
     console.log("Loading Sales History...");
+    cleanupSalesHistoryListeners();
+    globalSalesHistoryError = '';
+    globalOfficialSalesHistory = [];
+    renderSalesHistoryTable();
 
-    db.collection('Vendor-product')
-      .doc(vendorUid)
-      .collection('purchased-products')
-      .orderBy('claimedAt', 'desc')
-      .onSnapshot(snap => {
-        globalSalesHistory = [];
-        let totalSales = 0;
-        const tbody = document.getElementById('tbody-sales-history');
-        if (!tbody) return;
-
-        if (snap.empty) {
-            tbody.innerHTML = `<tr><td colspan="4" class="py-20 text-center text-gray-400 italic">No completed sales recorded yet.</td></tr>`;
-            updateSalesSummary(0);
-            return;
-        }
-
-        let html = '';
-        snap.forEach(doc => {
-            const sale = { id: doc.id, ...doc.data() };
-            globalSalesHistory.push(sale);
-            totalSales += Number(sale.totalAmount || 0);
-
-            const date = sale.claimedAt ? sale.claimedAt.toDate().toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-            }) : '---';
-
-            html += `
-            <tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer" onclick="viewSalesHistoryDetails('${doc.id}')">
-                <td class="px-8 py-5 font-mono text-xs text-slate-500">${date}</td>
-                <td class="px-8 py-5">
-                    <p class="font-bold text-slate-700 dark:text-gray-200">${sale.studentName || 'Guest'}</p>
-                    <p class="text-[10px] text-gray-400 uppercase">${sale.paymentMode || 'Cash'}</p>
-                </td>
-                <td class="px-8 py-5 text-gray-500 text-xs">
-                    ${sale.items ? sale.items.length : 0} items
-                </td>
-                <td class="px-8 py-5 text-right font-black text-primary dark:text-orange-400">
-                    ${formatMoney(sale.totalAmount)}
-                </td>
-            </tr>`;
+    unsubscribeOfficialSalesHistory = db.collection('Orders')
+        .where('sellerId', '==', vendorUid)
+        .where('sellerType', '==', 'vendor')
+        .where('orderChannel', '==', 'official')
+        .where('status', '==', 'completed')
+        .orderBy('updatedAt', 'desc')
+        .onSnapshot(snap => {
+            globalSalesHistoryError = '';
+            globalOfficialSalesHistory = snap.docs.map(normalizeOfficialSale);
+            console.log('Sales history query matched documents:', snap.size);
+            renderSalesHistoryTable();
+        }, err => {
+            globalSalesHistoryError = err?.message || 'Unable to load completed sales history.';
+            globalOfficialSalesHistory = [];
+            console.error("Official history sync failed:", err);
+            console.info('Sales history query details:', {
+                collection: 'Orders',
+                sellerId: vendorUid,
+                sellerType: 'vendor',
+                orderChannel: 'official',
+                status: 'completed',
+                orderBy: 'updatedAt desc'
+            });
+            renderSalesHistoryTable();
         });
-
-        tbody.innerHTML = html;
-        updateSalesSummary(totalSales);
-    }, err => console.error("History Sync Failed:", err));
 }
 
 window.viewOrderDetails = function(id) {
-    db.collection('orders').doc(id).get().then(doc => {
-        if (!doc.exists) return;
-        populateOrderDetails(doc.data());
-    });
+    const order = globalIncomingOrders.find(item => item.id === id);
+    if (!order) return;
+    populateIncomingOrderDetails(order);
 };
 
 window.viewSalesHistoryDetails = function(id) {
     const sale = globalSalesHistory.find(item => item.id === id);
     if (!sale) return;
     populateOrderDetails(sale);
+};
+
+
+const EMAILJS_PUBLIC_KEY = '4l61Onr7dUVbK5-MP';
+const EMAILJS_SERVICE_ID = 'service_70wjjs4';
+const EMAILJS_TEMPLATE_ID = 'template_rhnwibe';
+
+if (window.emailjs) {
+    emailjs.init({
+        publicKey: EMAILJS_PUBLIC_KEY
+    });
+}
+
+function buildReceiptItemsText(items) {
+    if (!Array.isArray(items) || !items.length) {
+        return '';
+    }
+
+    return items.map(item => {
+        const name = item?.name || 'Unnamed item';
+        const quantity = Number(item?.quantity || 0);
+        const price = Number(item?.price || 0);
+        const quantityText = quantity > 0 ? ` x${quantity}` : '';
+        const priceText = price > 0 ? ` - ${formatCurrency(price)}` : '';
+        return `- ${name}${quantityText}${priceText}`;
+    }).join('\n');
+}
+
+function getReceiptItemsText(order) {
+    const fromItems = buildReceiptItemsText(order.items || []);
+    if (fromItems) return fromItems;
+
+    const fallbackName = order.itemName || order.productName || 'Unnamed item';
+    const fallbackQuantity = Number(order.quantity || order.productQuantity || 1);
+    const fallbackPrice = Number(order.productPrice || order.total || order.subtotal || 0);
+    const quantityText = fallbackQuantity > 0 ? ` x${fallbackQuantity}` : '';
+    const priceText = fallbackPrice > 0 ? ` - ${formatCurrency(fallbackPrice)}` : '';
+    return `- ${fallbackName}${quantityText}${priceText}`;
+}
+
+async function sendReceiptEmail(order) {
+    if (!window.emailjs) {
+        throw new Error('EmailJS is not loaded.');
+    }
+
+    const toEmail = order.buyerEmail || order.customerInfo?.studentEmail || '';
+    if (!toEmail) {
+        throw new Error('No buyer email found.');
+    }
+
+    const templateParams = {
+        to_email: toEmail,
+        buyer_name: getOrderBuyerName(order),
+        order_id: order.id,
+        items_text: getReceiptItemsText(order),
+        items_list: getReceiptItemsText(order),
+        items_purchased: getReceiptItemsText(order),
+        subtotal: formatCurrency(order.subtotal),
+        total: formatCurrency(order.total)
+    };
+
+    console.log('Receipt order payload:', order);
+    console.log('Receipt template params:', templateParams);
+
+    await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        templateParams
+    );
+}
+
+window.updateIncomingOrderStatus = async function(orderId, newStatus) {
+    const order = globalIncomingOrders.find(item => item.id === orderId);
+    if (!order) {
+        alert('Order not found.');
+        return;
+    }
+
+    if (!canTransitionIncomingOrder(order.status, newStatus)) {
+        alert(`Invalid status change from ${order.status || 'unknown'} to ${newStatus}.`);
+        return;
+    }
+
+    globalUpdatingOrderIds.add(orderId);
+    renderIncomingOrders();
+
+    try {
+        await db.collection('Orders').doc(orderId).update({
+            status: newStatus,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        if (newStatus === 'completed') {
+            const refreshedDoc = await db.collection('Orders').doc(orderId).get();
+            const refreshedOrder = { id: refreshedDoc.id, ...(refreshedDoc.data() || {}) };
+
+            try {
+                await sendReceiptEmail(refreshedOrder);
+
+                await db.collection('Orders').doc(orderId).update({
+                    receiptSent: true,
+                    receiptSentAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    receiptError: firebase.firestore.FieldValue.delete()
+                });
+            } catch (emailError) {
+                await db.collection('Orders').doc(orderId).update({
+                    receiptSent: false,
+                    receiptError: emailError.message || 'Failed to send receipt'
+                });
+            }
+        }
+    } catch (e) {
+        console.error('Failed to update incoming order status:', e);
+        alert(`Error: ${e.message}`);
+    } finally {
+        globalUpdatingOrderIds.delete(orderId);
+        renderIncomingOrders();
+    }
 };
