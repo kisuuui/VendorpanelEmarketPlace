@@ -119,6 +119,9 @@
             <div onclick="switchView('salesHistory')" id="nav-salesHistory" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-border transition-colors">
                 <i data-lucide="history" class="w-5 h-5"></i><span>Sales History</span>
             </div>
+            <div onclick="switchView('reviews')" id="nav-reviews" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-border transition-colors">
+                <i data-lucide="star" class="w-5 h-5"></i><span>Reviews</span>
+            </div>
         </nav>
 
         <div class="mt-auto p-4 border-t border-gray-100 dark:border-dark-border">
@@ -176,7 +179,7 @@
                 <p class="text-slate-400">Tracking your specific marketplace performance.</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
                 <div class="bg-white dark:bg-dark-card p-6 rounded-3xl border dark:border-dark-border shadow-sm">
                     <p class="text-[10px] uppercase font-bold text-green-600 mb-1">My Sales</p>
                     <h3 id="dash-total-revenue" class="text-3xl font-black dark:text-white">₱0.00</h3>
@@ -188,6 +191,11 @@
                 <div class="bg-white dark:bg-dark-card p-6 rounded-3xl border dark:border-dark-border shadow-sm">
                     <p class="text-[10px] uppercase font-bold text-blue-600 mb-1">Items in Shop</p>
                     <h3 id="dash-active-products" class="text-3xl font-black dark:text-white">0</h3>
+                </div>
+                <div class="bg-white dark:bg-dark-card p-6 rounded-3xl border dark:border-dark-border shadow-sm">
+                    <p class="text-[10px] uppercase font-bold text-amber-500 mb-1">Average Rating</p>
+                    <h3 id="dash-average-rating" class="text-3xl font-black dark:text-white">0.0</h3>
+                    <p id="dash-review-count" class="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">0 Reviews</p>
                 </div>
             </div>
 
@@ -222,6 +230,7 @@
                         <tr class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">
                             <th class="px-6 py-4">Product</th>
                             <th class="px-6 py-4">Category</th>
+                            <th class="px-6 py-4">Academic Department</th>
                             <th class="px-6 py-4">Price</th>
                             <th class="px-6 py-4">Stock</th>
                             <th class="px-6 py-4 text-right">Status</th>
@@ -236,12 +245,13 @@
         <div id="view-orders" class="view-section hidden animate-fade-in">
             <div class="flex justify-between items-center mb-8">
                 <div>
-                    <h2 class="text-3xl font-black text-slate-800 dark:text-white">Pickup Requests</h2>
-                    <p class="text-slate-400">Manage student orders and preparation status.</p>
+                    <h2 class="text-3xl font-black text-slate-800 dark:text-white">Incoming Checkout Requests</h2>
+                    <p class="text-slate-400">Review official department and facility orders from the unified <span class="font-bold">Orders</span> collection.</p>
                 </div>
-                <button onclick="createDemoOrder()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black transition-all">
-                    Generate Demo Order
-                </button>
+                <div class="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                    Live Realtime Feed
+                </div>
             </div>
             <div id="orders-list" class="grid grid-cols-1 gap-4"></div>
         </div>
@@ -279,6 +289,52 @@
             </div>
         </div>
 
+        <div id="view-reviews" class="view-section hidden animate-fade-in">
+            <div class="flex flex-col gap-3 mb-8 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <h2 class="text-3xl font-black text-slate-800 dark:text-white">Customer Reviews</h2>
+                    <p class="text-slate-400">Track published product feedback and seller reputation from the shared review system.</p>
+                </div>
+                <div class="inline-flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+                    <i data-lucide="sparkles" class="h-4 w-4"></i>
+                    Shared Review Feed
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-4 mb-8">
+                <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                    <p class="text-[10px] uppercase font-bold text-amber-500 mb-1">Average Rating</p>
+                    <h3 id="reviews-average-rating" class="text-3xl font-black text-slate-800 dark:text-white">0.0</h3>
+                    <p class="mt-2 text-xs text-slate-400">Across published product reviews</p>
+                </div>
+                <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                    <p class="text-[10px] uppercase font-bold text-blue-600 mb-1">Review Count</p>
+                    <h3 id="reviews-review-count" class="text-3xl font-black text-slate-800 dark:text-white">0</h3>
+                    <p class="mt-2 text-xs text-slate-400">Visible product reviews</p>
+                </div>
+                <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                    <p class="text-[10px] uppercase font-bold text-emerald-600 mb-1">Rating Count</p>
+                    <h3 id="reviews-rating-count" class="text-3xl font-black text-slate-800 dark:text-white">0</h3>
+                    <p class="mt-2 text-xs text-slate-400">Seller reputation ratings</p>
+                </div>
+                <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                    <p class="text-[10px] uppercase font-bold text-primary mb-1">Latest Review</p>
+                    <h3 id="reviews-last-review" class="text-lg font-black text-slate-800 dark:text-white">---</h3>
+                    <p class="mt-2 text-xs text-slate-400">Most recent published feedback</p>
+                </div>
+            </div>
+
+            <div class="rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-dark-border dark:bg-dark-card overflow-hidden">
+                <div class="border-b border-gray-100 px-6 py-5 dark:border-dark-border">
+                    <h3 class="text-lg font-black text-slate-800 dark:text-white">Published Reviews</h3>
+                    <p class="mt-1 text-sm text-slate-400">Latest buyer feedback connected to your listings.</p>
+                </div>
+                <div id="reviews-list" class="divide-y divide-gray-100 dark:divide-white/5">
+                    <div class="p-10 text-center text-gray-400 italic">Loading reviews...</div>
+                </div>
+            </div>
+        </div>
+
         <div id="view-inbox" class="view-section hidden animate-fade-in">
             <div class="flex flex-col gap-3 mb-6 lg:flex-row lg:items-end lg:justify-between">
                 <div>
@@ -298,7 +354,7 @@
             </div>
 
             <div class="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-                <section class="min-h-[72vh] overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-dark-border dark:bg-dark-card">
+                <section class="h-[72vh] overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-dark-border dark:bg-dark-card">
                     <div class="border-b border-gray-100 p-5 dark:border-dark-border">
                         <label for="inbox-search" class="mb-2 block text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Search Conversations</label>
                         <div class="relative">
@@ -306,13 +362,13 @@
                             <input id="inbox-search" type="text" placeholder="Search customer chats..." class="form-input rounded-2xl border-gray-200 pl-11 pr-4 dark:border-dark-border">
                         </div>
                     </div>
-                    <div id="inbox-thread-list" class="custom-scroll max-h-[calc(72vh-96px)] overflow-y-auto divide-y divide-gray-100 dark:divide-white/5">
+                    <div id="inbox-thread-list" class="custom-scroll h-[calc(72vh-96px)] overflow-y-auto divide-y divide-gray-100 dark:divide-white/5">
                         <div class="p-10 text-center text-gray-400 italic">Loading conversations...</div>
                     </div>
                 </section>
 
-                <section class="min-h-[72vh] overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-dark-border dark:bg-dark-card">
-                    <div id="inbox-chat-empty" class="flex h-full min-h-[72vh] flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_top,_rgba(133,34,33,0.08),_transparent_45%)] px-6 text-center dark:bg-[radial-gradient(circle_at_top,_rgba(133,34,33,0.16),_transparent_45%)]">
+                <section class="h-[72vh] overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-dark-border dark:bg-dark-card">
+                    <div id="inbox-chat-empty" class="flex h-full flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_top,_rgba(133,34,33,0.08),_transparent_45%)] px-6 text-center dark:bg-[radial-gradient(circle_at_top,_rgba(133,34,33,0.16),_transparent_45%)]">
                         <div class="flex h-20 w-20 items-center justify-center rounded-3xl border border-dashed border-gray-300 bg-white/80 text-gray-400 shadow-sm dark:border-dark-border dark:bg-white/5 dark:text-gray-500">
                             <i data-lucide="messages-square" class="h-10 w-10"></i>
                         </div>
@@ -322,7 +378,7 @@
                         </div>
                     </div>
 
-                    <div id="inbox-chat-shell" class="hidden h-full min-h-[72vh] flex-col">
+                    <div id="inbox-chat-shell" class="hidden h-full grid grid-rows-[auto_minmax(0,1fr)_auto]">
                         <div class="flex items-center gap-4 border-b border-gray-100 px-6 py-5 dark:border-dark-border">
                             <div id="inbox-chat-avatar" class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-lg font-black text-primary ring-1 ring-slate-200 dark:bg-white/5 dark:ring-white/10">?</div>
                             <div class="min-w-0 flex-1">
@@ -335,15 +391,15 @@
                             </div>
                         </div>
 
-                        <div id="inbox-message-list" class="custom-scroll flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,_rgba(248,250,252,1)_0%,_rgba(255,255,255,1)_100%)] px-6 py-6 dark:bg-[linear-gradient(180deg,_rgba(28,28,36,1)_0%,_rgba(19,19,26,1)_100%)]">
+                        <div id="inbox-message-list" class="custom-scroll min-h-0 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,_rgba(248,250,252,1)_0%,_rgba(255,255,255,1)_100%)] px-6 py-8 dark:bg-[linear-gradient(180deg,_rgba(28,28,36,1)_0%,_rgba(19,19,26,1)_100%)]">
                             <div class="text-center text-gray-400 italic">Loading messages...</div>
                         </div>
 
-                        <form onsubmit="event.preventDefault(); sendChatMessage();" class="border-t border-gray-100 bg-white px-6 py-5 dark:border-dark-border dark:bg-dark-card">
-                            <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
+                        <form onsubmit="event.preventDefault(); sendChatMessage();" class="border-t border-gray-100 bg-white px-6 py-6 dark:border-dark-border dark:bg-dark-card">
+                            <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
                                 <div class="flex-1">
                                     <label for="inbox-message-input" class="mb-2 block text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Reply</label>
-                                    <textarea id="inbox-message-input" rows="2" placeholder="Type your message here..." class="form-input min-h-[88px] resize-none rounded-2xl border-gray-200 py-3 dark:border-dark-border"></textarea>
+                                    <textarea id="inbox-message-input" rows="3" placeholder="Type your message here..." class="form-input min-h-[110px] max-h-[170px] resize-none overflow-y-auto rounded-2xl border-gray-200 py-4 dark:border-dark-border"></textarea>
                                 </div>
                                 <button id="inbox-send-btn" type="submit" class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-sm font-black text-white shadow-lg transition hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-50">
                                     <i data-lucide="send" class="h-4 w-4"></i>
@@ -511,6 +567,16 @@
                     <option>Books & Learning Materials</option>
                     <option>Sports & PE</option>
                 </select>
+                <select id="DepartmentTag" class="form-input">
+                    <option value="">Choose a department tag</option>
+                    <option value="BSCS">BSCS</option>
+                    <option value="AB POLSCIE">AB POLSCIE</option>
+                    <option value="BSTM">BSTM</option>
+                    <option value="BSBA">BSBA</option>
+                    <option value="BSED">BSED</option>
+                    <option value="BSHM">BSHM</option>
+                    <option value="BEED">BEED</option>
+                </select>
                 <input id="inp_status" type="hidden" value="Pending"> 
                 <input id="inp_recipient" type="hidden" value=""> 
                 <textarea id="inp_desc" class="form-input h-24 resize-none" placeholder="Description..."></textarea>
@@ -543,8 +609,28 @@
             
             <div class="space-y-4">
                 <div class="flex justify-between border-b pb-2">
-                    <span class="text-gray-400">Student Name:</span>
+                    <span class="text-gray-400">Buyer Name:</span>
                     <span id="od-student" class="font-bold">--</span>
+                </div>
+                <div class="flex justify-between border-b pb-2 gap-4">
+                    <span class="text-gray-400">Buyer Email:</span>
+                    <span id="od-email" class="font-bold text-right">--</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="text-gray-400">Contact Number:</span>
+                    <span id="od-contact" class="font-bold">--</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="text-gray-400">School Level:</span>
+                    <span id="od-level" class="font-bold">--</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="text-gray-400">Status:</span>
+                    <span id="od-status" class="font-bold">--</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="text-gray-400">Department Tag:</span>
+                    <span id="od-department" class="font-bold">--</span>
                 </div>
                 <div class="flex justify-between items-center border-b pb-3 mb-2">
     <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Payment Method</span>
@@ -558,8 +644,8 @@
         <span id="od-date-placed" class="font-mono font-bold text-slate-600 dark:text-gray-300">--</span>
     </div>
     <div class="flex justify-between text-[11px]">
-        <span class="text-gray-400">Claimed & Paid:</span>
-        <span id="od-date-claimed" class="font-mono font-bold text-green-600">--</span>
+        <span class="text-gray-400">Last Updated:</span>
+        <span id="od-date-updated" class="font-mono font-bold text-green-600">--</span>
     </div>
 </div>
                 <div>
@@ -567,9 +653,32 @@
                     <div id="od-items-list" class="space-y-2 bg-slate-50 dark:bg-white/5 p-4 rounded-xl">
                         </div>
                 </div>
+                <div class="rounded-xl bg-slate-50 dark:bg-white/5 p-4">
+                    <p class="text-xs font-bold text-primary uppercase mb-2">Notes</p>
+                    <p id="od-notes" class="text-sm text-slate-600 dark:text-gray-300">--</p>
+                </div>
+                <div class="rounded-xl bg-slate-50 dark:bg-white/5 p-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-xs font-bold text-primary uppercase">Receipt Email</p>
+                        <div id="od-receipt-badge" class="px-3 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm bg-slate-100 text-slate-500">
+                            <span id="od-receipt-status">Not tracked</span>
+                        </div>
+                    </div>
+                    <p id="od-receipt-detail" class="mt-3 text-sm text-slate-600 dark:text-gray-300">Receipt status will appear here.</p>
+                </div>
+                <div class="space-y-2 border-t pt-4 dark:border-white/10">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Subtotal</span>
+                        <span id="od-subtotal" class="font-bold">PHP 0.00</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Tax</span>
+                        <span id="od-tax" class="font-bold">PHP 0.00</span>
+                    </div>
+                </div>
                 <div class="flex justify-between items-center pt-4">
                     <span class="font-bold text-lg">Total Amount:</span>
-                    <span id="od-total" class="font-black text-2xl text-primary">₱0.00</span>
+                    <span id="od-total" class="font-black text-2xl text-primary">PHP 0.00</span>
                 </div>
             </div>
             
@@ -653,5 +762,6 @@
 </div>
 
     <script src="Script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </body>
 </html>
