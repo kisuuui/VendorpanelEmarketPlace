@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders | SCC Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"><script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script><link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+    <div id="app-shell" class="app-shell"><main class="app-main"><header id="topbar" class="topbar"></header>
+        <section class="page-content stack">
+            <div class="grid-cards"><div class="metric-card"><span>Total Orders</span><strong id="orders-total">0</strong></div><div class="metric-card"><span>Active Orders</span><strong id="orders-active">0</strong></div><div class="metric-card"><span>Completed Orders</span><strong id="orders-completed">0</strong></div></div>
+            <div class="panel"><div class="panel-header"><h2>Ongoing Orders</h2></div><table class="data-table"><thead><tr><th>Order</th><th>Buyer</th><th>Seller</th><th>Item</th><th>Qty</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="orders-body"></tbody></table></div>
+        </section>
+    </main></div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/config.js"></script><script src="js/firebase.js"></script><script src="js/roles.js"></script><script src="js/utils.js"></script><script src="js/authGuard.js"></script><script src="js/layout.js"></script><script src="js/orders.js"></script>
+</body>
+</html>

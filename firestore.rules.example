@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function roleRank() {
+      return profile().roleRank is int ? profile().roleRank : profile().role;
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && roleRank() == 1;
+    }
+
+    function isAdminOrHigher() {
+      return signedIn() && roleRank() in [1, 2];
+    }
+
+    match /users/{userId} {
+      allow read: if isAdminOrHigher() || request.auth.uid == userId;
+      allow create: if isAdminOrHigher();
+      allow update: if isAdminOrHigher() || request.auth.uid == userId;
+      allow delete: if isSuperAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isAdminOrHigher();
+      allow write: if isSuperAdmin();
+    }
+
+    match /products_approved/{productId} {
+      allow read: if isAdminOrHigher();
+      allow write: if isSuperAdmin();
+    }
+
+    match /products_pending/{productId} {
+      allow read: if isAdminOrHigher();
+      allow write: if isSuperAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAdminOrHigher();
+      allow write: if isAdminOrHigher();
+    }
+
+    match /financials/{recordId} {
+      allow read, write: if isAdminOrHigher();
+    }
+
+    match /logs/{logId} {
+      allow read: if isAdminOrHigher();
+      allow create: if isAdminOrHigher();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    match /tickets/{ticketId} {
+      allow read, write: if isAdminOrHigher();
+    }
+
+    match /product_reports/{reportId} {
+      allow read, write: if isAdminOrHigher();
+      match /messages/{messageId} {
+        allow read, write: if isAdminOrHigher();
+      }
+    }
+  }
+}

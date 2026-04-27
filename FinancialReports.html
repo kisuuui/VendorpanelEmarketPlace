@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Reports | SCC Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"><script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script><link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+    <div id="app-shell" class="app-shell"><main class="app-main"><header id="topbar" class="topbar"></header>
+        <section class="page-content stack">
+            <div class="grid-cards">
+                <div class="metric-card"><span>Gross Sales</span><strong id="finance-gross">PHP 0.00</strong></div>
+                <div class="metric-card"><span>Admin Commission</span><strong id="finance-commission">PHP 0.00</strong></div>
+                <div class="metric-card"><span>Net Payout</span><strong id="finance-payout">PHP 0.00</strong></div>
+                <div class="metric-card"><span>Transactions</span><strong id="finance-count">0</strong></div>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><h2>Input Financial Record</h2></div>
+                <form id="finance-form" class="page-content toolbar">
+                    <input class="form-input" name="date" type="date">
+                    <input class="form-input" name="buyerName" placeholder="Buyer name" required>
+                    <input class="form-input" name="recipient" placeholder="Recipient">
+                    <input class="form-input" name="itemName" placeholder="Item name" required>
+                    <input class="form-input" name="category" placeholder="Category">
+                    <input class="form-input" name="amount" type="number" step="0.01" placeholder="Amount" required>
+                    <input class="form-input" name="refId" placeholder="Reference ID">
+                    <input class="form-input" name="description" placeholder="Description">
+                    <button class="btn btn-primary" type="submit">Save Record</button>
+                </form>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><h2>Recent Financial Records</h2><a class="btn" href="TransactionHistory.html">Transaction History</a></div>
+                <table class="data-table"><thead><tr><th>Date</th><th>Buyer</th><th>Item</th><th>Category</th><th>Amount</th><th>Ref ID</th></tr></thead><tbody id="finance-recent-body"></tbody></table>
+            </div>
+        </section>
+    </main></div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/config.js"></script><script src="js/firebase.js"></script><script src="js/roles.js"></script><script src="js/utils.js"></script><script src="js/authGuard.js"></script><script src="js/layout.js"></script><script src="js/financialReports.js"></script>
+</body>
+</html>

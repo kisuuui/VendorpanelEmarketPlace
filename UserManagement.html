@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management | SCC Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+    <div id="app-shell" class="app-shell"><main class="app-main"><header id="topbar" class="topbar"></header>
+        <section class="page-content stack">
+            <div class="panel">
+                <div class="panel-header"><h2>Create Account</h2></div>
+                <form id="create-user-form" class="page-content toolbar">
+                    <input class="form-input" name="firstName" placeholder="First name" required>
+                    <input class="form-input" name="lastName" placeholder="Last name" required>
+                    <input class="form-input" name="email" type="email" placeholder="Email" required>
+                    <input class="form-input" name="password" type="password" placeholder="Password">
+                    <input class="form-input" name="studentNumber" placeholder="Student number">
+                    <input class="form-input" name="phone" placeholder="Phone">
+                    <select class="form-select" name="roleRank"><option value="1">1 - Super Admin</option><option value="2">2 - Admin</option><option value="3">3 - Seller</option><option value="4" selected>4 - User</option></select>
+                    <button class="btn btn-primary" type="submit">Create User</button>
+                </form>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><h2>Accounts</h2><input id="user-search" class="form-input" placeholder="Search users"></div>
+                <table class="data-table">
+                    <thead><tr><th>UID</th><th>Name</th><th>Email</th><th>Student No.</th><th>Phone</th><th>Role</th><th>Email Verified</th><th>Status</th><th>Created</th></tr></thead>
+                    <tbody id="users-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </main></div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/config.js"></script><script src="js/firebase.js"></script><script src="js/roles.js"></script><script src="js/utils.js"></script><script src="js/authGuard.js"></script><script src="js/layout.js"></script><script src="js/userManagement.js"></script>
+</body>
+</html>

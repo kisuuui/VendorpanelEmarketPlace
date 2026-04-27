@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Items | SCC Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+    <div id="app-shell" class="app-shell"><main class="app-main"><header id="topbar" class="topbar"></header>
+        <section class="page-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Product Inventory</h2>
+                    <div class="toolbar">
+                        <button id="open-product-modal" class="btn btn-primary" type="button">Add Item</button>
+                        <input id="product-search" class="form-input" placeholder="Search products">
+                        <select id="category-filter" class="form-select"></select>
+                        <select id="subcategory-filter" class="form-select"></select>
+                    </div>
+                </div>
+                <table class="data-table">
+                    <thead><tr><th>Product</th><th>Category</th><th>Sub Category</th><th>Recipient</th><th>Price</th><th>Stock</th><th>Status</th></tr></thead>
+                    <tbody id="items-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </main></div>
+
+    <div id="product-modal" class="modal-backdrop" aria-hidden="true">
+        <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title">
+            <div class="modal-header">
+                <div>
+                    <h2 id="product-modal-title">Add Own Product</h2>
+                    <p>Upload product images and complete the listing details.</p>
+                </div>
+                <button id="close-product-modal" class="icon-btn" type="button" title="Close"><i data-lucide="x"></i></button>
+            </div>
+
+            <form id="product-form" class="modal-body">
+                <div class="modal-grid">
+                    <div class="stack">
+                        <input class="form-input" name="name" placeholder="Product name" required>
+                        <input class="form-input" name="price" type="number" step="0.01" placeholder="Price" required>
+                        <input class="form-input" name="stock" type="number" min="0" placeholder="Stock" required>
+                        <input class="form-input" name="category" placeholder="Category" required>
+                        <input class="form-input" name="subcategory" placeholder="Sub Category">
+                        <input class="form-input" name="recipient" placeholder="Recipient">
+                        <textarea class="form-input modal-textarea" name="description" placeholder="Description"></textarea>
+                    </div>
+
+                    <div class="stack">
+                        <button id="product-upload-trigger" class="upload-box" type="button">
+                            <i data-lucide="image-plus"></i>
+                            <strong>Upload Images</strong>
+                            <span>Choose up to 3 product photos</span>
+                        </button>
+                        <input id="product-images" class="hidden" name="images" type="file" accept="image/*" multiple>
+                        <div id="product-image-preview" class="preview-grid"></div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button id="cancel-product-modal" class="btn" type="button">Cancel</button>
+                    <button id="save-product-btn" class="btn btn-primary" type="submit">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/config.js"></script><script src="js/firebase.js"></script><script src="js/roles.js"></script><script src="js/utils.js"></script><script src="js/authGuard.js"></script><script src="js/layout.js"></script><script src="js/allItems.js"></script>
+</body>
+</html>

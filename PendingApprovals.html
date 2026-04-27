@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pending Approvals | SCC Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"><script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script><link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+    <div id="app-shell" class="app-shell"><main class="app-main"><header id="topbar" class="topbar"></header>
+        <section class="page-content"><div class="panel"><div class="panel-header"><h2>Pending Product Quality Check</h2></div><table class="data-table"><thead><tr><th>Product</th><th>Submitted By</th><th>Category</th><th>Sub Category</th><th>Price</th><th>Action</th></tr></thead><tbody id="pending-body"></tbody></table></div></section>
+    </main></div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/config.js"></script><script src="js/firebase.js"></script><script src="js/roles.js"></script><script src="js/utils.js"></script><script src="js/authGuard.js"></script><script src="js/layout.js"></script><script src="js/pendingApprovals.js"></script>
+</body>
+</html>

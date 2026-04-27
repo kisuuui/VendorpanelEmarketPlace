@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | SCC Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+    <div id="app-shell" class="app-shell">
+        <main class="app-main">
+            <header id="topbar" class="topbar"></header>
+            <section class="page-content stack">
+                <p id="dashboard-error" class="muted"></p>
+                <div class="grid-cards">
+                    <div class="metric-card"><span>Total Users</span><strong id="metric-users">0</strong></div>
+                    <div class="metric-card"><span>Total Sellers</span><strong id="metric-sellers">0</strong></div>
+                    <div class="metric-card"><span>Total Orders</span><strong id="metric-orders">0</strong></div>
+                    <div class="metric-card"><span>Active Orders</span><strong id="metric-active-orders">0</strong></div>
+                    <div class="metric-card"><span>Completed Orders</span><strong id="metric-completed-orders">0</strong></div>
+                    <div class="metric-card"><span>Active Products</span><strong id="metric-products">0</strong></div>
+                    <div class="metric-card"><span>Admin Commission</span><strong id="metric-revenue">PHP 0.00</strong></div>
+                </div>
+                <div class="two-col">
+                    <div class="panel">
+                        <div class="panel-header"><h2>Recent Active Orders</h2><a class="btn" href="Orders.html">View Orders</a></div>
+                        <table class="data-table">
+                            <thead><tr><th>Order</th><th>Buyer</th><th>Item</th><th>Amount</th><th>Status</th></tr></thead>
+                            <tbody id="recent-orders-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header"><h2>Recent Activity</h2></div>
+                        <div id="activity-list" class="page-content stack"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/config.js"></script><script src="js/firebase.js"></script><script src="js/roles.js"></script><script src="js/utils.js"></script><script src="js/authGuard.js"></script><script src="js/layout.js"></script><script src="js/dashboard.js"></script>
+</body>
+</html>
